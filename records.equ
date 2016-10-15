@@ -1,0 +1,239 @@
+
+	;
+	; n.b. -- __sizeof only works for the record.  It does not
+	; work when actually instantiated.  MPW sucks for some reason.
+	; perhaps it blindly adds the current * to all relative equates....
+	;
+		macro
+&n		begin_struct
+&n		record 0
+__begin		equ *
+		mend
+
+		macro
+&n		end_struct
+&n		
+__end		equ *
+__sizeof	equ __end - __begin
+		endr
+		mend
+
+
+GSString255	begin_struct
+length		DS.W	1		; Word - Number of Chars in text field 
+text		DS.B	255		; char[255] - 
+		end_struct
+
+GSString32	begin_struct
+length		DS.W	1		; Word - Number of characters in text field
+text		DS.B	32		; char[32] - 
+		end_struct
+
+ResultBuf255	begin_struct
+bufSize		DS.W	1
+bufString	DS	GSString255
+		end_struct
+
+ResultBuf32	begin_struct
+bufSize		DS.W	1
+bufString	DS	GSString32
+		end_struct
+
+TimeRec		begin_struct
+second		DS.B	1
+minute		DS.B	1
+hour		DS.B	1
+year		DS.B	1
+day		DS.B	1
+month		DS.B	1
+extra		DS.B	1
+weekDay		DS.B	1
+		end_struct
+
+DirEntryRecGS	begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+flags		DS.W	1
+base		DS.W	1
+displacement	DS.W	1
+name		DS.L	1
+entryNum	DS.W	1
+fileType	DS.W	1
+eof		DS.L	1
+blockCount	DS.L	1
+createDateTime  DS	TimeRec
+modDateTime	DS	TimeRec
+access		DS.W	1
+auxType		DS.L	1
+fileSysID	DS.W	1
+optionList	DS.L	1
+resourceEOF	DS.L	1
+resourceBlocks	DS.L	1
+		end_struct
+
+DirEntryRec	begin_struct
+refNum		DS.B	2
+flags		DS.B	2
+base		DS.B	2
+displacement	DS.B	2
+nameBuffer	DS.B	4
+entryNum	DS.B	2
+fileType	DS.B	2
+endOfFile	DS.B	4
+blockCount	DS.B	4
+createTime	DS	TimeRec
+modTime		DS	TimeRec
+access		DS.B	2
+auxType		DS.B	4
+fileSysID	DS.B	2
+		end_struct
+
+
+
+FileInfoRecGS	begin_struct
+pCount		DS.W	1
+pathname	DS.L	1
+access		DS.W	1
+fileType	DS.W	1
+auxType		DS.L	1
+storageType	DS.W	1
+createDateTime  DS	TimeRec
+modDateTime	DS	TimeRec
+optionList	DS.L	1
+eof		DS.L	1
+blocksUsed	DS.L	1
+resourceEOF	DS.L	1
+resourceBlocks	DS.L	1
+		end_struct
+
+
+FileRec		begin_struct
+pathname	DS.B	4
+fAccess		DS.B	2
+fileType	DS.B	2
+auxType		DS.B	4
+storageType	DS.B	2
+createDate	DS.B	2
+createTime	DS.B	2
+modDate		DS.B	2
+modTime		DS.B	2
+blocksUsed	DS.B	4
+		end_struct
+
+OpenRecGS	begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+pathname	DS.L	1
+requestAccess	DS.W	1
+resourceNumber	DS.W	1
+access		DS.W	1
+fileType	DS.W	1
+auxType		DS.L	1
+storageType	DS.W	1
+createDateTime  DS	TimeRec
+modDateTime	DS	TimeRec
+optionList	DS.L	1
+eof		DS.L	1
+blocksUsed	DS.L	1
+resourceEOF	DS.L	1
+resourceBlocks	DS.L	1
+		end_struct
+
+OpenRec		begin_struct
+openRefNum	DS.B	2
+openPathname	DS.B	4
+ioBuffer	DS.B	4
+		end_struct
+
+
+VolumeRecGS	begin_struct
+pCount		DS.W	1
+devName		DS.L	1
+volName		DS.L	1
+totalBlocks	DS.L	1
+freeBlocks	DS.L	1
+fileSysID	DS.W	1
+blockSize	DS.W	1
+characteristics	ds.w	1
+deviceID	ds.w	1
+		end_struct
+
+
+VolumeRec	begin_struct
+deviceName	DS.B	4
+volName		DS.B	4
+totalBlocks	DS.B	4
+freeBlocks	DS.B	4
+fileSysID	DS.B	2
+		end_struct
+
+
+JudgeNameRecGS	begin_struct
+pCount		ds.w	1
+fileSysID	ds.w	1
+nameType	ds.w	1
+syntax		ds.l	1
+maxLen		ds.w	1
+name		ds.l	1
+nameFlags	ds.w	1
+		end_struct
+
+PositionRecGS	begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+position	DS.L	1
+		end_struct
+
+MarkRec		begin_struct
+markRefNum	DS.B	2
+position	DS.B	4
+		end_struct
+
+EOFRecGS	begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+eof		DS.L	1
+		end_struct
+
+
+EOFRec		begin_struct
+eofRefNum	DS.B	2
+eofPosition	DS.B	4
+		end_struct
+
+IORecGS		begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+dataBuffer	DS.L	1
+requestCount	DS.L	1
+transferCount	DS.L	1
+cachePriority	DS.W	1
+		end_struct
+
+FileIORec	begin_struct
+fileRefNum	DS.B	2
+dataBuffer	DS.B	4
+requestCount	DS.B	4
+transferCount	DS.B	4
+		end_struct
+
+
+SetPositionRecGS begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+base		DS.W	1
+displacement	DS.L	1
+		end_struct
+
+
+DevNumRecGS	begin_struct
+pCount		DS.W	1
+devName		DS.L	1
+devNum		DS.W	1
+		end_struct
+
+
+DevNumRec	begin_struct
+devName		DS.B	4
+devNum		DS.B	2
+		end_struct

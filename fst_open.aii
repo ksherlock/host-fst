@@ -1,0 +1,113 @@
+		include 'gsos.equ'
+		include 'fst.equ'
+		include	'fst.macros'
+		include	'records.equ'
+
+open		proc
+
+		with	fst_parms
+
+		jsr	check_path
+		bcs	exit
+
+		jsr	build_vcr
+		bcs	exit
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		wdm	#$ff
+		bcs	exit
+		stx	cookie
+		sty	scratch	; actual read/write access
+
+		; build the fcr.
+		lda	#fcr.__sizeof
+		ldx	#host
+		ldy	#^host
+		jsl	alloc_fcr
+		bcs	close
+
+		jsl	deref
+		stx	my_fcr
+		sty	my_fcr+2
+
+		; need to re-deref the vcr?
+
+		ldy	#vcr.open_count
+		lda	[my_vcr],y
+		inc	a
+		sta	[my_vcr],y
+
+		lda	scratch
+		ldy	#fcr.access
+		sta	[my_fcr],y
+
+		lda	#fst_id
+		ldy	#fcr.fst_id
+		sta	[my_fcr],y
+
+
+		ldy	#vcr.id
+		lda	[my_vcr],y
+		ldy	#fcr.vcr_id
+		sta	[my_fcr],y
+
+exit_ok
+		lda	#0
+		clc
+exit
+		rtl
+
+close
+		;; oops!  close it!
+		lda	#0
+		ldx	#$2014
+		ldy	cookie
+		wdm	#$ff
+		sec
+		lda	#out_of_mem
+		rtl
+
+host		str.w ":Host"
+
+		endp
+
+
+path_op		proc
+create		entry
+destroy		entry
+get_file_info	entry
+set_file_info	entry
+clear_backup	entry
+
+		with	fst_parms
+
+		jsr	check_path
+		bcs	exit
+
+		; hmmm - don't really need a vcr for this...
+		;jsr	build_vcr
+		;bcs	exit
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		wdm	#$ff
+exit
+		rtl
+		endp	
+
+change_path	proc
+		; special since there are two pathnames.
+		lda	#invalid_fst_op
+		sec
+		rtl
+		endp
+judge_name	proc
+		lda #0
+		clc
+		rtl
+		endp
+
+		end

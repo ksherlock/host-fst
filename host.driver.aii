@@ -1,0 +1,279 @@
+
+		include	'gsos.equ'
+		include 'fst.macros'
+
+		entry entry, startup, open, close, read, write, flush, status, control, shutdown
+
+		;entry open_flag, ss_count, status_word
+
+
+
+		string asis
+header		proc
+		dc.w dib-header
+		dc.w 1				; 1 device
+		dc.w 0				; no config list
+
+
+dib		dc.l	0			;Link pointer to next DIB
+		dc.l	entry			;Entry pointer
+		dc.w	%0000111100000000	;Characteristics
+		dc.l	0			;Block count
+		str.b	'HOST'			;Device name with length
+		dcb.b	32-5,$20
+		dc.w	$8007			;Slot number
+		dc.w	1			;Unit number
+		dc.w	$1000			;Version number
+		dc.w	$0010			;ID # file server
+		dc.w	0			;No header link
+		dc.w	0			;No forward link
+		dc.l	0			;extended dib ptr
+		dc.w	0			;Device number
+
+		endp
+
+
+
+entry		proc
+
+		longa	on
+		longi	on
+
+		phb			;Save the GS/OS bank register
+
+		phk
+		plb
+
+		cmp	#8+1		;Max command number
+		bcc	@dispatch
+		lda	#drvr_bad_req
+		bra	exit
+
+@dispatch
+		asl	a
+		tax
+		jsr	(table,x)
+
+
+exit
+		plb
+		cmp	#1
+		rtl
+
+table
+		dc.w	startup
+		dc.w	open
+		dc.w	read
+		dc.w	write
+		dc.w	close
+		dc.w	status
+		dc.w	control
+		dc.w	flush
+		dc.w	shutdown
+
+		endp
+
+
+data		record
+		export ss_count, open_flag, status_word
+
+ss_count	dc.w	0
+open_flag	dc.w	0
+
+		; copied via get_device_status
+status_word	dc.w	$0010
+blocks		dc.l	0
+		endr
+
+flush		proc
+		lda	#no_error
+		rts
+		endp
+
+read		proc
+		lda	#no_error
+		rts
+		endp
+
+write		proc
+		lda	#no_error
+		rts
+		endp
+
+
+startup		proc
+		stz	open_flag
+		inc	ss_count
+		lda	#no_error
+		rts
+		endp
+
+shutdown	proc
+		stz	ss_count
+		lda	#no_error
+		rts
+		endp
+
+open		proc
+		lda	open_flag
+		bne	oops
+
+		inc	open_flag
+		lda	#1
+		tsb	status_word
+
+		lda	#no_error
+		rts
+oops
+		lda	#drvr_prior_open
+		rts
+
+		endp
+
+close		proc
+		lda	open_flag
+		beq	oops
+
+		stz	open_flag
+		lda	#1
+		trb	status_word
+
+		lda	#no_error
+		rts
+oops
+		lda	#drvr_not_open
+		rts
+
+		endp
+
+
+status		proc
+		with	dev_parms
+
+		lda	<dev_stat_code
+		cmp	#4+1
+		bcc	@dispatch
+		lda	#drvr_bad_code
+		rts
+@dispatch
+
+		asl	a
+		tax
+
+		; pre-zero transfer count
+		stz	<dev_xfer_cnt
+		stz	<dev_xfer_cnt+2
+
+		lda	dev_req_cnt
+		; check for 0-sized request...
+		ora	dev_req_cnt+2
+		beq	exit
+
+		jmp	(table,x)
+table
+		dc.w	get_device_status
+		dc.w	get_config_params
+		dc.w	get_wait_status
+		dc.w	get_format_options
+		dc.w	get_partition_map
+
+get_device_status
+		lda	dev_req_cnt+2
+		bne	bad_parm
+
+		lda	dev_req_cnt
+		cmp	#2
+		bcc	bad_parm
+		cmp	#6+1
+		bcs	bad_parm
+
+		sta	<dev_xfer_cnt
+		tay
+		dey
+		sep	#$30
+		longa	off
+@loop
+		lda	status_word,y
+		sta	[dev_buff],y
+		dey
+		bpl	@loop
+		rep	#$30
+		longa	on
+
+
+exit
+		lda	#no_error
+		rts
+
+bad_parm	lda	#drvr_bad_parm
+		rts
+
+
+get_partition_map
+get_format_options
+		lda	#no_error
+		rts
+
+get_config_params
+get_wait_status
+		lda	dev_req_cnt+2
+		bne	bad_parm
+
+		lda	dev_req_cnt
+		cmp	#2
+		bne	bad_parm
+		sta	<dev_xfer_cnt
+
+		lda	#0
+		sta	[dev_buff]
+		lda	#no_error
+		rts
+
+		endp
+
+control		proc
+		with dev_parms
+
+		lda	<dev_ctrl_code
+		cmp	#9+1
+		bcc	@dispatch
+		lda	#drvr_bad_code
+		rts
+@dispatch
+		asl	a
+		tax
+		jmp	(table,x)
+
+
+		entry null, set_wait
+table
+		dc.w	null ; reset
+		dc.w	null ; format
+		dc.w	null ; eject
+		dc.w	null ; set ctrl
+		dc.w	set_wait ; set wait
+		dc.w	null ; set format
+		dc.w	null ; set partition
+		dc.w	null ; arm signal
+		dc.w	null ; disarm signal
+		dc.w	null ; set partition map
+
+null		lda	#no_error
+		rts
+
+set_wait
+		; verify wait status is 0.
+		lda	dev_req_cnt+2
+		bne	@bad_parm
+		lda	dev_req_cnt
+		cmp	#2
+		bne	@bad_parm
+		lda	[dev_buff]
+		beq	@exit
+@bad_parm
+		lda	#drvr_bad_parm
+@exit
+		rts
+		endp
+
+		end

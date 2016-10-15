@@ -1,0 +1,274 @@
+
+
+	; dispatch table for variable-pcount structures.
+	
+	MACRO
+&lab	dispatch &table
+
+&lab
+@loop
+	ldy &table,x
+	jsr (&table+2,x)
+	dex
+	dex
+	dex
+	dex
+	bpl @loop
+
+	MEND
+
+
+	MACRO
+	str.&size ; &arg, ...
+
+	lclc &str
+	lcla &i, &l
+
+&str	setc &setting('string')
+	STRING asis
+
+	if &size<>'' THEN
+	dc.&size @end-@start
+	ENDIF
+
+@start
+
+&i	seta 1
+&l	seta &nbr(&syslist)
+
+	WHILE &i<=&l DO
+	dc.b &syslist[&i]
+&i	seta &i+1
+	ENDWHILE
+
+@end
+
+	STRING &str
+
+	MEND
+
+
+	MACRO
+	long &p1,&p2
+
+	lcla &bits
+&bits	seta %00000000
+;&p1	setc &lc(&p1)
+;&p2	setc &lc(&p2)
+
+	if &p1='m' OR &p2='m' THEN
+&bits	seta &bits+%00100000
+	longa on
+	ENDIF
+
+	if &p1='x' OR &p2='x' THEN
+&bits	seta &bits+%00010000
+	longi on
+	ENDIF
+
+	IF &bits<>0 THEN
+	rep #&bits
+	ENDIF
+
+	MEND
+
+
+	MACRO
+	short &p1,&p2
+
+	lcla &bits
+&bits	seta %00000000
+;&p1	setc &lc(&p1)
+;&p2	setc &lc(&p2)
+
+	if &p1='m' OR &p2='m' THEN
+&bits	seta &bits+%00100000
+	longa off
+	ENDIF
+
+	if &p1='x' OR &p2='x' THEN
+&bits	seta &bits+%00010000
+	longi off
+	ENDIF
+
+	IF &bits<>0 THEN
+	sep #&bits
+	ENDIF
+
+	MEND
+
+
+	macro
+&l	~ConvSeconds &p1,&p2,&p3
+&l	ph2	&p1
+	ph4	&p2
+	ph4	&p3
+	ldx	#$3703
+	jsl	$E10000
+	mend
+
+	macro
+&l	~Long2Hex &p1,&p2,&p3
+&l	ph4	&p1
+	ph4	&p2
+	ph2	&p3
+	ldx	#$230B
+	jsl	$E10000
+	mend
+
+	macro
+&l	~Int2Hex &p1,&p2,&p3
+&l	ph2	&p1
+	ph4	&p2
+	ph2	&p3
+	ldx	#$220B
+	jsl	$E10000
+	mend
+
+
+	macro
+&l	_DebugHexDump
+&l	ldx #$0fff
+	jsl $e10000
+	mend
+
+
+	macro
+&l	~DebugHexDump &p1,&p2
+&l	ph4 &p1
+	ph2 &p2
+	ldx #$0fff
+	jsl $e10000
+	mend
+
+
+	macro
+&l	_DebugGetTrace
+&l	ldx #$10ff
+	jsl $e10000
+	mend
+
+	macro
+&l	~DebugGetTrace
+&l	ldx #$10ff
+	jsl $e10000
+	mend
+
+
+	macro
+&l	_DebugSetTrace
+&l	ldx #$11ff
+	jsl $e10000
+	mend
+
+
+	macro
+&l	~DebugSetTrace &p1
+&l	ph2 &p1
+	ldx #$11ff
+	jsl $e10000
+	mend
+
+
+	; borrowed from orca/m
+	; mpw's pushword/pushlong have bugs and generally sucks
+	MACRO
+	ph2	&n1
+
+	IF &n1='*' THEN
+		MEXIT
+	ENDIF
+
+	IF &n1[1:1]='#' THEN
+		pea &n1[2:255]
+		MEXIT
+	ENDIF
+
+	IF &n1[1:1]='<' THEN
+		pei &n1
+		MEXIT
+	ENDIF
+
+	lda &n1
+	pha
+
+	MEND
+
+	MACRO
+	ph4	&n1
+
+	IF &n1='*' THEN
+		MEXIT
+	ENDIF
+
+	IF &n1[1:1]='#' THEN
+		pea |(&n1[2:255])>>16
+		pea |&n1[2:255]
+		MEXIT
+	ENDIF
+
+	IF &n1[1:1]='<' THEN
+		pei &n1+2
+		pei &n1
+		MEXIT
+	ENDIF
+
+
+	lda &n1+2
+	pha
+	lda &n1
+	pha
+
+	MEND
+
+
+	; _rts.cc -> return iff carry clear
+	macro
+&l	_rts.&cond
+
+	if &cond='cc' THEN
+	bcs @ok
+	ENDIF
+
+	if &cond='cs' THEN
+	bcc @ok
+	ENDIF
+
+	if &cond='eq' THEN
+	bne @ok
+	ENDIF
+
+	if &cond='ne' THEN
+	beq @ok
+	ENDIF
+
+	if &cond='mi' THEN
+	bpl @ok
+	ENDIF
+
+	if &cond='pl' THEN
+	bmi @ok
+	ENDIF
+
+	if &cond='vs' THEN
+	bvc @ok
+	ENDIF
+
+	if &cond='vc' THEN
+	bvs @ok
+	ENDIF
+
+	rts
+@ok
+	mend
+
+	; reverse subtract.
+	macro
+&l	rsb &target
+	eor #$ffff
+	sec
+	adc &target
+	mend
+
+
+

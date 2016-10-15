@@ -1,0 +1,54 @@
+
+                	; my direct page.
+dp              	record $0080
+
+ptr			ds.l 1 ; misc ptr
+
+my_vcr          	ds.l 1
+my_fcr          	ds.l 1
+cookie			ds.w 1
+
+
+__end			equ *
+			IF *>=$d4 THEN
+			AERROR 'dp -- too large.'
+			ENDIF
+			endr
+
+
+fcr			record 0
+id			ds.w 1	; ref num
+path_name		ds.l 1
+fst_id			ds.w 1
+vcr_id			ds.w 1
+level			ds.w 1
+newline			ds.l 1
+newline_length		ds.w 1
+mask			ds.w 1
+access			ds.w 1
+
+			; fst-specific items
+
+cookie			ds.w 1
+
+__sizeof		equ *
+			endr
+
+vcr			record 0
+id			ds.w 1
+name			ds.l 1
+status			ds.w 1
+open_count		ds.w 1
+fst_id			ds.w 1
+device			ds.w 1
+fst_ptr			ds.l 1
+
+			; fst-specific items
+
+__sizeof		equ *
+			endr
+
+
+
+			; 5 = mfs, we're stealing it for now.
+fst_id			equ 5

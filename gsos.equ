@@ -1,0 +1,263 @@
+
+
+	MACRO
+	DEFAULT &var,&value
+	IF &FINDSYM(&SYSGLOBAL,&var)=0 THEN
+&var EQU &value
+	ENDIF
+	MEND
+
+	; ` prevents expansion during macro processing.
+	DEFAULT `DEBUG_S16,0
+	DEFAULT `DebugSymbols,0
+
+****************************************************************
+*
+* The following are equates for GS/OS error codes.
+*
+****************************************************************
+
+no_error        equ    $00             ; no error has occured
+bad_system_call equ    $01             ; bad system call number
+fst_load_fail   equ    $02             ; couldn't load FST
+invalid_pcount  equ    $04             ; invalid parameter count
+gsos_active     equ    $07             ; gsos already active
+dev_not_found   equ    $10             ; device not found
+invalid_dev_num equ    $11             ; invalid device number
+drvr_bad_req    equ    $20             ; bad request or command
+drvr_bad_code   equ    $21             ; bad control or status code
+drvr_bad_parm   equ    $22             ; bad call parameter
+drvr_not_open   equ    $23             ; character device not open
+drvr_prior_open equ    $24             ; character device already open
+irq_table_full  equ    $25             ; interrupt table full
+drvr_no_resrc   equ    $26             ; resources not available
+drvr_io_error   equ    $27             ; I/O error
+drvr_no_dev     equ    $28             ; device not connected
+drvr_busy       equ    $29             ; driver is busy & not available
+drvr_wr_prot    equ    $2B             ; device is write protected
+drvr_bad_count  equ    $2C             ; invalid byte count
+drvr_bad_block  equ    $2D             ; invalid block number
+drvr_disk_sw    equ    $2E             ; disk has been switched
+drvr_off_line   equ    $2F             ; device off line / no media present
+bad_path_syntax equ    $40             ; invalid pathname syntax
+invalid_ref_num equ    $43             ; invalid reference number
+path_not_found  equ    $44             ; subdirectory does not exist
+vol_not_found   equ    $45             ; volume not found
+file_not_found  equ    $46             ;
+dup_pathname    equ    $47             ; create or rename with existing name
+volume_full     equ    $48             ;
+vol_dir_full    equ    $49             ; volume directory full
+version_error   equ    $4A             ;
+bad_store_type  equ    $4B             ; bad storage type
+end_of_file     equ    $4C             ;
+out_of_range    equ    $4D             ; position out of range
+invalid_access  equ    $4E             ; access not allowed
+buff_too_small  equ    $4F             ; buffer too small
+softerrorlow    equ    $50             ; errors from $50 to $6f are soft errors
+file_busy       equ    $50             ; file is already open
+dir_error       equ    $51             ; directory error
+unknown_vol     equ    $52             ; unknown volume type
+parm_range_err  equ    $53             ; parameter out of range
+out_of_mem      equ    $54             ; out of memory
+dup_volume      equ    $57             ; duplicate volume name
+not_block_dev   equ    $58             ; not a block device
+invalid_level   equ    $59             ; specified level outside legal range
+damaged_bitmap  equ    $5A             ; block number too large
+bad_path_names  equ    $5B             ; invalid pathnames for change_path
+not_system_file equ    $5C             ; not an executable file
+os_unsupported  equ    $5D             ; operating system not supported
+stack_overflow  equ    $5F             ; too many applications on stack
+data_unavail    equ    $60             ; data unavailable
+end_of_dir      equ    $61             ; end of directory has been reached
+invalid_class   equ    $62             ; invalid FST call class
+res_not_found   equ    $63             ; file does not contain req. resource
+invalid_fst_id  equ    $64             ; specified FST is not present in system
+invalid_fst_op  equ    $65             ; FST does not handle this type of call
+fst_caution     equ    $66             ; FST handled call, but result is weird
+dup_device      equ    $67             ; used internally only!!!
+dev_list_full   equ    $68             ; device list is full
+sup_list_full   equ    $69             ; supervisor list is full
+fst_error       equ    $6A             ;generic FST error
+softerrorhigh   equ    $6f             ; maximum soft error number allowed
+resource_exist  equ    $70             ;Cannot expand file, resource already exist		
+res_add_err     equ    $71             ;cannot add resource fork to this type file.
+
+network_error   equ    $88             ;Generic network error.
+
+****************************************************************
+*
+* System Service Table Equates:
+*
+****************************************************************
+
+dev_dispatcher  equ    $01FC00         ;dev_dispatch (initialized by new dev dispatcher)
+cache_find_blk  equ    $01FC04         ;cash_find
+cache_add_blk   equ    $01FC08         ;cash_add
+cache_init      equ    $01FC0C         ;cache initialization
+cache_shutdn    equ    $01FC10         ;cash_shutdown
+cache_del_blk   equ    $01FC14         ;cash_delete
+cache_del_vol   equ    $01FC18         ;cash_del_vol
+alloc_seg       equ    $01FC1C         ;alloc_zero
+release_seg     equ    $01FC20         ;deallocate
+alloc_vcr       equ    $01FC24         ;allocvcr
+release_vcr     equ    $01FC28         ;releasevcr
+alloc_fcr       equ    $01FC2C         ;allocfcr
+release_fcr     equ    $01FC30         ;releasefcr
+swap_out        equ    $01FC34         ;swapout
+deref           equ    $01FC38         ;deref2
+get_sys_gbuf    equ    $01FC3C         ;s_get_sys_gbuf
+sys_exit        equ    $01FC40         ;s_sys_exit
+sys_death       equ    $01FC44         ;s_sys_death
+find_vcr        equ    $01FC48         ;findvcr
+find_fcr        equ    $01FC4C         ;findfcr
+set_sys_speed   equ    $01FC50         ;set system speed (initialized by new dev dispatcher)
+cache_flsh_def  equ    $01FC54         ;flush deferred blocks from cache
+rename_vcr      equ    $01FC58         ;renamevcr
+rename_fcr      equ    $01FC5C         ;renamefcr
+get_vcr         equ    $01FC60         ;getvcr
+get_fcr         equ    $01FC64         ;getfcr
+lock_mem        equ    $01FC68         ;lockmem
+unlock_mem      equ    $01FC6C         ;unlockmem
+move_info       equ    $01FC70         ;block move routines
+cvt_0to1        equ    $01FC74         ;cvt0to1
+cvt_1to0        equ    $01FC78         ;cvt1to0
+replace_80      equ    $01FC7C         ;replace80
+to_b0_core      equ    $01FC80         ;to_bank0_core
+gen_dispatch    equ    $01FC84         ;g_dispatch
+signal          equ    $01FC88         ;signal_event
+get_sys_buf     equ    $01FC8C         ;get_b0_buf
+set_disksw      equ    $01FC90         ;set_disk_sw (initialized by new dev dispatcher)
+report_error    equ    $01FC94         ;s_report_error
+mount_message   equ    $01FC98         ;s_mount_msg
+full_error      equ    $01FC9C         ;s_full_error
+report_fatal    equ    $01FCA0         ;s_report_fatal
+sup_drvr_disp   equ    $01FCA4         ;supervisory dispatcher
+install_driver  equ    $01FCA8         ;install device driver
+get_boot_pfx    equ    $01FCAC         ;s_get_boot_pfx
+set_boot_pfx    equ    $01FCB0         ;s_set_boot_pfx
+alloc_cache_seg equ    $01FCB4         ;low_allocate
+get_stked_id    equ    $01FCB8         ;get id of prog at top of GQUIT stack
+dyn_slot_arbiter equ   $01FCBC         ;slot arbitration routine (initialized by new dev dispatcher)
+parse_pathname  equ    $01FCC0         ;parse a pathname
+post_os_event   equ    $01FCC4         ;notify external code about os event.
+dynamic_install equ    $01FCC8         ;install drivers (new init by SCM to JML INSERT_DRIVER)
+dev_mgr_svc     equ    $01FCCC         ;device manager entry (initialized by new dev dispatcher)
+old_dev_disp    equ    $01FCD0         ;old device dispatcher (new init by SCM to JML DEV_DISPATCH)
+init_parse_path equ    $01FCD4         ;initialize for parse_path.
+
+
+;
+; Event codes for os_event
+;
+volmod_event	equ	$0040		; event code for volume modified
+disk_in_event	equ	$0008		; disk inserted event
+
+;
+; Driver command codes
+;
+drvr_startup	equ	0
+drvr_open	equ	1
+drvr_read	equ	2
+drvr_write	equ	3
+drvr_close	equ	4
+drvr_status	equ	5
+drvr_control	equ	6
+drvr_flush	equ	7
+drvr_shutdown	equ	8
+
+drvr_get_dib	equ	1
+
+;
+; Driver control and status call codes
+;
+stat_status	equ	0
+stat_config	equ	1
+
+
+
+*
+* System Death error codes
+*
+vcr_unusable    equ    $000A           ; VCR is unusable/inconsistent
+fcr_unusable    equ    $000B           ; FCR is unusable/inconsistent
+
+
+
+vcr_swapped	equ $4000           ;FLAG:Volume is swapped out (1 = true)
+vcr_swapped_in	equ $BFFF           ;FLAG:Volume is swapped in
+vcr_wr_enable	equ $2000           ;FLAG:Volume has been seen write enabled
+vcr_wr_unknown	equ $DFFF           ;FLAG:Volume has not been seen wrenbld
+
+
+*
+* access bits.
+*
+
+read_enabled	equ	$0001		;1=Read Enabled
+write_enabled	equ	$0002		;1=Write Enabled
+backup_enabled	equ	$0020		;1=Needs to be backed up
+rename_enabled	equ	$0040		;1=Rename allowed
+destroy_enabled	equ	$0080		;1=Destroy is enabled
+
+read_access	equ	$01
+write_access	equ	$02
+invis_bit	equ	$04
+read_write_acc	equ	$03
+
+; used by ProDOS
+in_cache	equ	$8002
+
+                ; records
+
+
+
+dev_parms		record	0
+;--------------------------------------------------
+; Here are the device driver fields
+;--------------------------------------------------
+dev_num		ds.w	1		; device number being called
+dev_callnum	ds.w	1		; call number
+
+dev_dev_id				; device ID (get_dib_ptr)
+dev_buff				; I/O buffer address
+		ds.l	1		
+
+dev_req_cnt	ds.l	1		; request count
+dev_xfer_cnt	ds.l	1		; transfer count
+dev_blk_num	ds.l	1		; block number
+dev_blk_size	ds.w	1		; block size
+
+dev_fst_num				; FST number
+dev_stat_code				;   status code
+dev_ctrl_code				;   control code
+		ds.w	1		
+dev_vol_id	ds.w	1		; volume ID (???)
+dev_cache_pr	ds.w	1		; cache priority
+dev_cache_ptr	ds.l	1		; cache pointer
+dev_dib_ptr	ds.l	1		; pointer to DIB
+		endr
+
+
+                ; gs/os direct page.
+fst_parms	record $0030
+call_number	ds.w 1		; FST call number
+param_blk_ptr	ds.l 1		; pointer to user's parameter block
+
+;dev_num			; device number from parameter block
+dev1_num	ds.w 1		; alias name for dev_num
+
+dev2_num	ds.w 1		; second device number
+
+path1_ptr			; ptr to 1st partial/entire pathname
+fcr_ptr		ds.l 1		; pointer to file control record
+
+path2_ptr			; ptr to 2nd partial/entire pathname
+vcr_ptr		ds.l 1		; pointer to volume control record
+
+path_flag	ds.w 1		; flag for path information
+span1		ds.w 1		; largest distance between path1 term.
+span2		ds.w 1		; max dist. between separators for path2
+		endr
+
+
+

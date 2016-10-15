@@ -1,0 +1,598 @@
+		include 'gsos.equ'
+		include 'fst.equ'
+		include	'fst.macros'
+		include	'records.equ'
+
+
+		longa	on
+		longi	on
+		string	asis
+
+		entry app_entry, sys_entry
+
+header		proc
+		str	'FST '
+		dc.l	app_entry
+		dc.l	sys_entry
+		dc.w	fst_id
+		dc.w	$0000		; attributes
+		dc.w	$0100		; version
+		dc.w	$0200 		; block size
+		dc.l	$007FFFFF	; maximum volume size
+		dc.l	1		; min volume size
+		dc.l	$FFFFFFFF	; max file size
+		dc.l	0 ; reserved
+		str.b	'Host' ; name
+		str.b	'Host FST              v01.00' ; comment
+		dc.w	0 ; reserved
+		; credits
+		str.b	'Host FST written by Kelvin W Sherlock.'
+
+		endp
+
+data		record
+		export dev_id
+		; device id of the .host driver.
+dev_id		ds.w 0
+
+		endr
+
+sys_entry	proc
+
+		phk
+		plb
+		rep #$30
+
+		cpx #max_sys_call+1
+		bge rtl_no_error
+
+		jmp (@sys_table,x)
+
+@sys_table
+		dc.w rtl_no_error
+		dc.w sys_startup
+		dc.w sys_shutdown
+		dc.w rtl_no_error	; remove vcr
+		dc.w rtl_no_error	; deferred flush
+max_sys_call	equ *-@sys_table-2
+
+		endp
+
+
+sys_startup	proc
+		with	dev_parms
+
+		; 1. find the .host device.
+
+		lda	#1
+		sta	dev_dev_id
+		stz	dev_num
+loop
+		lda	#drvr_get_dib
+		sta	dev_callnum
+		jsl	dev_dispatcher
+		bcs	no
+		; appletalk puts up a dialog box....
+
+		ldy	#$34 ; dib device id
+		lda	[dev_dib_ptr],y
+		cmp	#$10 ; file server
+		bne	next
+
+		short	m
+		ldy	#$0e ; name $04 H O S T
+		lda	[dev_dib_ptr],y
+		cmp	#$04
+		bne	next
+
+		iny
+		lda	[dev_dib_ptr],y
+		cmp	#'H'
+		bne	next
+
+		iny
+		lda	[dev_dib_ptr],y
+		cmp	#'O'
+		bne	next
+
+		iny
+		lda	[dev_dib_ptr],y
+		cmp	#'S'
+		bne	next
+
+		iny
+		lda	[dev_dib_ptr],y
+		cmp	#'T'
+		bne	next
+
+		lon	m
+		lda	dev_dev_id
+		sta	dev_id
+		bra	got_device
+
+next
+		long	m
+		; try the next one.
+		inc	dev_dev_id
+		bra	loop
+
+got_device
+
+		; sanity check that the global buffer location
+		; is where I expect it.
+		jsl	get_sys_gbuf
+		cpy	#$0000
+		bne	no
+		cpx	#$9a00
+		bne	no
+
+		; check if host wdm active.
+
+		lda	#0
+		sec
+		ldx	#$8001
+		wdm	#$ff
+		; wdm will clear carry if active.
+		rtl
+
+no
+		sec	; unload me!
+		lda #0
+		rtl
+		endp
+
+sys_shutdown	proc
+
+		lda	#0
+		clc
+		ldx	#$8002
+		wdm	#$ff
+		rtl
+		endp
+
+rtl_no_error	proc
+		lda #0
+		clc
+		rtl
+		endp
+
+
+rtl_invalid_fst_op	proc
+		lda #invalid_fst_op
+		sec
+		rtl
+		endp
+
+rtl_bad_system_call	proc
+		lda #bad_system_call
+		sec
+		rtl
+		endp
+
+rtl_invalid_pcount	proc
+		lda #invalid_pcount
+		sec
+		rtl
+		endp
+
+
+app_entry	proc
+
+
+		with dp
+		with fst_parms
+
+		import	max_pcount
+		import	want_fcr
+		import	want_vcr
+
+		phk
+		plb
+		rep #$30
+
+
+
+		;brk $42
+
+		sty <call_class
+
+		; debug saves all registers.
+		IF DEBUG_S16 THEN
+		jsr debug
+		ENDIF
+
+		
+		; check the class 0 or 1 only.
+		cpy #2+1
+		bge @bad_system_call
+
+		cpx #max_app_call+1 ; 66+1
+		bge @bad_system_call
+
+		; class 1 -- check the pcount maximum.
+		cpy #2
+		bne @ok
+
+		lda [param_blk_ptr]
+		; gs/os already checks the minimum and verifies non-null names, etc.
+		;cmp min_pcount,x
+		;blt @invalid_pcount
+		cmp max_pcount,x
+		bge @invalid_pcount
+
+@ok
+
+		stz	my_fcr
+		stz	my_fcr+2
+		stz	my_vcr
+		stz	my_vcr+2
+		stz	cookie
+
+		phx 	; save...
+		lda	want_fcr,x
+		beq	@fcr
+
+		ldx 	fcr_ptr
+		ldy 	fcr_ptr+2
+		jsl	deref
+		stx	my_fcr
+		sty	my_fcr+2
+		ldy	#fcr.cookie
+		lda	[my_fcr],y
+		sta	cookie
+
+@fcr
+		plx	; restore
+		phx	; save
+
+		lda	want_vcr,x
+		beq	@vcr
+
+		ldx 	vcr_ptr
+		ldy 	vcr_ptr+2
+		jsl	deref
+		stx	my_vcr
+		sty	my_vcr+2
+@vcr
+
+		plx	; restore
+
+		; check for dev num / :Host: path?
+
+		; fake an rtl address for sys_exit
+		; otherwise, would need to jml sys_exit from functions.
+		pea |(sys_exit-1)>>8
+		phb
+		lda #<sys_exit-1
+		sta 1,s
+
+		; call it...
+		jmp (@app_table,x)
+
+
+@bad_system_call
+		lda #bad_system_call
+		sec
+		jml sys_exit
+
+@invalid_pcount
+		lda #invalid_pcount
+		sec
+		jml sys_exit
+		endp
+
+
+
+
+close		proc
+		with	dp
+		lda	#invalid_fst_op
+		ldx	call_number
+		ldy	cookie
+		sec
+		wdm	#$ff
+		bcc	@ok
+		rtl
+@ok
+		; destroy the fcr
+		lda [my_fcr]
+		jsl release_fcr
+
+		; decrement vcr
+		ldx vcr_ptr
+		ldy vcr_ptr+2
+		jsl deref
+		stx my_vcr
+		sty my_vcr+2
+
+
+		ldy #vcr.open_count
+		lda [my_vcr],y
+		beq fatal
+		dec a
+		sta [my_vcr],y
+
+		lda #0
+		clc
+		rtl
+
+fatal
+		lda #vcr_unusable
+		jml sys_death
+
+		endp
+
+read		proc
+		; slightly special since newline mode may be in effect.
+
+		ldy	#fcr.mask
+		lda	[my_fcr],y
+		sta	>$009a00 ; hardcoded...
+		beq	fd_op
+
+		; zero-out the table.
+		ldx	#256-2
+		lda	#0
+@zloop
+		sta >$009a00+2,x
+		dex
+		dex
+		bpl @zloop
+
+		; newline list is a virtual pointer.
+		ldy #fcr.newline
+		lda [my_fcr],y
+		tax
+		iny
+		iny
+		lda [my_fcr],y
+		tay
+		jsl deref
+		stx ptr
+		sty ptr+2
+
+		ldy #fcr.newline_length
+		lda [my_fcr],y
+		tay
+		dey
+
+		ldx	#0
+		lda	#0
+		short m
+nloop
+		lda [ptr],y
+		tax
+		lda #$ff
+		sta >$009a00+2,x
+		dey
+		bpl nloop
+		long m
+
+		bra fd_op
+
+		endp
+
+fd_op		proc
+
+		; read, write, truncate, etc.
+		; everything (except close) that uses an fcr.
+		lda	#invalid_fst_op
+		ldx	call_number
+		ldy	cookie
+		sec
+		wdm	#$ff
+		rtl
+		endp
+
+
+volume		proc
+		; check if a volume is ours, create vcr if necessary.
+
+		lda	fst_parms.dev1_num
+		beq	no
+
+		cmp	dev_id
+		bne	no
+		; yes!
+
+		lda	#unknown_vol
+		ldx	call_number
+		sec
+		wdm	#$ff
+		bcc	@ok
+		rtl
+@ok
+		; name is hardcoded to Host.
+		jsr	build_vcr
+		rtl
+
+
+no
+		lda #unknown_vol
+		sec
+		rtl
+
+		endp
+
+build_vcr	procname
+
+		; for now, volume hard coded as 'Host'.
+
+
+		with dp
+
+		ldx #default_name
+		ldy #^default_name
+		lda #0
+		jsl find_vcr
+		bcs create_vcr
+		jsl deref
+
+		stx my_vcr
+		sty my_vcr+2
+		ldy #vcr.fst_id
+		lda [my_vcr],y
+		cmp #fst_id
+		bne dump_vcr
+
+		ldy #vcr.status
+		lda [my_vcr],y
+		and #vcr_swapped
+		beq @exit
+
+		and #vcr_swapped_in
+		sta [my_vcr],y
+
+		;lda device
+		lda dev_id
+		ldy #vcr.device
+		sta [my_vcr],y
+
+@exit
+		lda #0
+		clc
+		rts
+
+dump_vcr
+		; vcr exists for the filename but it's not mine.
+		; if inactive, kick it out.  otherwise, return dup error.
+
+		;
+		; todo -- prodos fst has kludge for change path which
+		; allows duplicates if using a device name or something...
+		;
+
+		ldy #vcr.open_count
+		lda [my_vcr],y
+		beq @dump
+
+		lda #dup_volume
+		sec
+		rts
+
+@dump
+		ldy #vcr.id
+		lda [my_vcr],y
+		jsl release_vcr
+		; drop through.
+
+create_vcr
+		lda #vcr.__sizeof
+		ldx #default_name
+		ldy #^default_name
+		jsl alloc_vcr
+		lda #out_of_mem
+		bcs exit
+
+		jsl deref
+		stx my_vcr
+		sty my_vcr+2
+
+		lda #0
+		ldy #vcr.status
+		sta [my_vcr],y
+		ldy #vcr.open_count
+		sta [my_vcr],y
+
+		lda #fst_id
+		ldy #vcr.fst_id
+		sta [my_vcr],y
+
+		lda dev_id
+		ldy #vcr.device
+		sta [my_vcr],y
+
+		lda #0
+		clc
+exit
+		rts
+
+default_name_colon
+		str.w ':Host'
+
+default_name
+		str.w 'Host'
+
+		endp
+
+get_dev_num	proc
+path		equ	path1_ptr
+
+		lda	dev1_num
+		bne	store
+
+		jsr	check_path
+		bcs	exit
+
+		jsr	build_vcr
+		bcs	exit
+
+		lda	dev_id
+store
+		ldx	call_class
+		ldy	table,x
+		sta	[param_blk_ptr],y
+		lda	#0
+		clc
+exit
+		rtl
+
+
+table
+		dc.w DevNumRec.devNum, DevNumRecGS.devNum
+
+		endp
+
+		;
+		; verify this path is for us
+		; (via dev number or :Host:)
+		;
+check_path	proc
+		lda	dev1_num
+		beq	path
+		cmp	dev_id
+		beq	ok
+
+vnf
+		lda	#vol_not_found
+		sec
+		rts
+ok
+		lda	#0
+		clc
+		rts
+path
+		ldy	#2
+		ldx	#0
+		lda	#0
+		short	m
+
+loop
+		lda	[path1_ptr],y
+		cmp	lower,y
+		beq	@next
+		cmp	upper,y
+		beq	@next
+		long	m
+		bra	vnf
+@next
+		iny
+		cpy	#5+2
+		bne	loop
+
+		; check for trailing null / :
+		lda	[path1_ptr],y
+		beq	@ok
+		cmp	#':'
+		beq	@ok
+
+		long	m
+		bra	vnf
+@ok
+		long	m
+		bra	ok
+
+
+lower		str.w	':host'
+upper		str.w	':HOST'
+		end
