@@ -8,14 +8,53 @@
 		longi	on
 		string	asis
 
-		entry app_entry, sys_entry
+		entry	app_entry
+		entry	sys_entry
+
+		entry	rtl_no_error
+		entry	sys_startup
+		entry	sys_shutdown
+
+		entry	check_path1, check_path2
+		entry	build_vcr
+
+		entry	fd_op
+
+
+		entry	create
+		entry	destroy
+		entry	change_path
+		entry	set_file_info
+		entry	get_file_info
+		entry	judge_name
+		entry	volume
+		entry	open
+		entry	close
+		entry	read
+		entry	write
+		entry	flush
+		entry	get_mark
+		entry	set_mark
+		entry	get_eof
+		entry	set_eof
+		entry	get_dir_entry
+		entry	get_dev_num
+		entry	format
+		entry	erase_disk
+
+
+		macro
+&lab		call_host
+&lab		dc.b $42, $ff
+		endm
 
 header		proc
 		str	'FST '
 		dc.l	app_entry
 		dc.l	sys_entry
 		dc.w	fst_id
-		dc.w	$0000		; attributes
+
+		dc.w	fst_attr	; attributes
 		dc.w	$0100		; version
 		dc.w	$0200 		; block size
 		dc.l	$007FFFFF	; maximum volume size
@@ -33,7 +72,12 @@ header		proc
 data		record
 		export dev_id
 		; device id of the .host driver.
-dev_id		ds.w 0
+dev_id		dc.w 0
+
+		export colon_host, colon_HOST, colon_Host
+colon_host	str.w	':host'
+colon_Host	str.w	':Host'
+colon_HOST	str.w	':HOST'
 
 		endr
 
@@ -57,6 +101,32 @@ sys_entry	proc
 max_sys_call	equ *-@sys_table-2
 
 		endp
+
+rtl_no_error	proc
+		lda #0
+		clc
+		rtl
+		endp
+
+
+rtl_invalid_fst_op	proc
+		lda #invalid_fst_op
+		sec
+		rtl
+		endp
+
+rtl_bad_system_call	proc
+		lda #bad_system_call
+		sec
+		rtl
+		endp
+
+rtl_invalid_pcount	proc
+		lda #invalid_pcount
+		sec
+		rtl
+		endp
+
 
 
 sys_startup	proc
@@ -105,7 +175,7 @@ loop
 		cmp	#'T'
 		bne	next
 
-		lon	m
+		long	m
 		lda	dev_dev_id
 		sta	dev_id
 		bra	got_device
@@ -131,7 +201,7 @@ got_device
 		lda	#0
 		sec
 		ldx	#$8001
-		wdm	#$ff
+		call_host
 		; wdm will clear carry if active.
 		rtl
 
@@ -146,34 +216,10 @@ sys_shutdown	proc
 		lda	#0
 		clc
 		ldx	#$8002
-		wdm	#$ff
+		call_host
 		rtl
 		endp
 
-rtl_no_error	proc
-		lda #0
-		clc
-		rtl
-		endp
-
-
-rtl_invalid_fst_op	proc
-		lda #invalid_fst_op
-		sec
-		rtl
-		endp
-
-rtl_bad_system_call	proc
-		lda #bad_system_call
-		sec
-		rtl
-		endp
-
-rtl_invalid_pcount	proc
-		lda #invalid_pcount
-		sec
-		rtl
-		endp
 
 
 app_entry	proc
@@ -182,19 +228,16 @@ app_entry	proc
 		with dp
 		with fst_parms
 
-		import	max_pcount
-		import	want_fcr
-		import	want_vcr
 
 		phk
 		plb
 		rep #$30
 
 
-
-		;brk $42
-
+		; x = call number * 2
+		; y = call class * 2
 		sty <call_class
+		stx <tmp
 
 		; debug saves all registers.
 		IF DEBUG_S16 THEN
@@ -203,22 +246,21 @@ app_entry	proc
 
 		
 		; check the class 0 or 1 only.
-		cpy #2+1
-		bge @bad_system_call
+		cpy	#2+1
+		bge	@bad_system_call
 
-		cpx #max_app_call+1 ; 66+1
-		bge @bad_system_call
+		cpx	#max_app_call+1 ; 66+1
+		bge	@bad_system_call
 
 		; class 1 -- check the pcount maximum.
-		cpy #2
-		bne @ok
+		cpy	#2
+		bne	@ok
 
-		lda [param_blk_ptr]
+		lda	table,x
+		and	#$00ff
+		cmp	[param_blk_ptr]
 		; gs/os already checks the minimum and verifies non-null names, etc.
-		;cmp min_pcount,x
-		;blt @invalid_pcount
-		cmp max_pcount,x
-		bge @invalid_pcount
+		bcc	@invalid_pcount
 
 @ok
 
@@ -228,9 +270,11 @@ app_entry	proc
 		stz	my_vcr+2
 		stz	cookie
 
-		phx 	; save...
-		lda	want_fcr,x
-		beq	@fcr
+
+@check_fcr
+		; check fcr bit.
+		bit	table,x
+		bpl	@check_vcr
 
 		ldx 	fcr_ptr
 		ldy 	fcr_ptr+2
@@ -241,56 +285,196 @@ app_entry	proc
 		lda	[my_fcr],y
 		sta	cookie
 
-@fcr
-		plx	; restore
-		phx	; save
 
-		lda	want_vcr,x
-		beq	@vcr
+
+@check_vcr
+		ldx	<tmp
+
+		bit	table,x
+		bvc	@check_path
 
 		ldx 	vcr_ptr
 		ldy 	vcr_ptr+2
 		jsl	deref
 		stx	my_vcr
 		sty	my_vcr+2
-@vcr
 
-		plx	; restore
+@check_path
+		ldx	<tmp
 
-		; check for dev num / :Host: path?
+		lda	#path_used
+		bit	table,x
+		beq	@call
+		; path checking...
+
+		jsr	check_path1
+		bcc	@call
+		jml	sys_exit
+
+@call
+		ldx	<tmp
 
 		; fake an rtl address for sys_exit
 		; otherwise, would need to jml sys_exit from functions.
-		pea |(sys_exit-1)>>8
+		pea	|(sys_exit-1)>>8
 		phb
-		lda #<sys_exit-1
-		sta 1,s
+		lda	#<sys_exit-1
+		sta	1,s
 
 		; call it...
-		jmp (@app_table,x)
+		ldx	<tmp
+		jmp	(app_table,x)
+
+
 
 
 @bad_system_call
-		lda #bad_system_call
+		lda	#bad_system_call
 		sec
-		jml sys_exit
+		jml	sys_exit
 
 @invalid_pcount
-		lda #invalid_pcount
+		lda	#invalid_pcount
 		sec
-		jml sys_exit
+		jml	sys_exit
+
+@vol_not_found
+		lda	#vol_not_found
+		sec
+		jml	sys_exit
+
+
+
+app_table
+		dc.w rtl_bad_system_call	; 
+		dc.w create			; ($01) Create
+		dc.w destroy			; ($02) Destroy
+		dc.w rtl_bad_system_call	; ($03) OS Shutdown
+		dc.w change_path		; ($04) Change Path
+		dc.w set_file_info		; ($05) Set File Info
+		dc.w get_file_info		; ($06) Get File Info
+		dc.w judge_name			; ($07) Judge Name
+		dc.w volume			; ($08) Volume
+		dc.w rtl_bad_system_call	; ($09) Set Prefix
+		dc.w rtl_bad_system_call	; ($0A) Get Prefix
+		dc.w rtl_invalid_fst_op		; ($0B) Clear Backup Bit
+		dc.w rtl_bad_system_call	; ($0C) Set Sys Prefs
+		dc.w rtl_no_error		; ($0D) Null
+		dc.w rtl_bad_system_call	; ($0E) Expand Path
+		dc.w rtl_bad_system_call	; ($0F) Get Sys Prefs
+		dc.w open			; ($10) Open
+		dc.w rtl_bad_system_call	; ($11) NewLine
+		dc.w read			; ($12) Read
+		dc.w write			; ($13) Write
+		dc.w close			; ($14) Close
+		dc.w flush			; ($15) Flush
+		dc.w set_mark			; ($16) Set Mark
+		dc.w get_mark			; ($17) Get Mark
+		dc.w set_eof			; ($18) Set EOF
+		dc.w get_eof			; ($19) Get EOF
+		dc.w rtl_bad_system_call	; ($1A) Set Level
+		dc.w rtl_bad_system_call	; ($1B) Get Level
+		dc.w get_dir_entry		; ($1C) Get Dir Entry
+		dc.w rtl_bad_system_call	; ($1D) Begin Session
+		dc.w rtl_bad_system_call	; ($1E) End Session
+		dc.w rtl_bad_system_call	; ($1F) Session Status
+		dc.w get_dev_num		; ($20) Get Dev Num
+		dc.w rtl_bad_system_call	; ($21) Get Last Dev
+		dc.w rtl_bad_system_call	; ($22) Read Block
+		dc.w rtl_bad_system_call	; ($23) Write Block
+		dc.w format			; ($24) Format
+		dc.w erase_disk			; ($25) Erase Disk
+		dc.w rtl_bad_system_call	; ($26) Reset Cache
+		dc.w rtl_bad_system_call	; ($27) Get Name
+		dc.w rtl_bad_system_call	; ($28) Get Boot Vol
+		dc.w rtl_bad_system_call	; ($29) Quit
+		dc.w rtl_bad_system_call	; ($2A) Get Version
+		dc.w rtl_bad_system_call	; ($2B) Get FST Info
+		dc.w rtl_bad_system_call	; ($2C) D_INFO
+		dc.w rtl_bad_system_call	; ($2D) D_STATUS
+		dc.w rtl_bad_system_call	; ($2E) D_CONTROL
+		dc.w rtl_bad_system_call	; ($2F) D_READ
+		dc.w rtl_bad_system_call	; ($30) D_WRITE
+		dc.w rtl_bad_system_call	; ($31) Alloc Interrupt
+		dc.w rtl_bad_system_call	; ($32) Dealloc Interrupt
+		dc.w rtl_invalid_fst_op		; ($33) FST Specific
+max_app_call	equ *-app_table-2
+
+
+
+
+fcr_used	equ	$8000
+vcr_used	equ	$4000
+path_used	equ	$2000
+
+table		; stores max pcount + 1
+		dc.w	0
+		dc.w	8+path_used			; ($01) Create
+		dc.w	2+path_used			; ($02) Destroy
+		dc.w	0				; ($03) OS Shutdown
+		dc.w	4+path_used			; ($04) Change Path
+		dc.w	13+path_used			; ($05) Set File Info
+		dc.w	13+path_used			; ($06) Get File Info
+		dc.w	7				; ($07) Judge Name
+		dc.w	7				; ($08) Volume
+		dc.w	0				; ($09) Set Prefix
+		dc.w	0				; ($0A) Get Prefix
+		dc.w	2+path_used			; ($0B) Clear Backup Bit
+		dc.w	0				; ($0C) Set Sys Prefs
+		dc.w	0				; ($0D) Null
+		dc.w	0				; ($0E) Expand Path
+		dc.w	0				; ($0F) Get Sys Prefs
+		dc.w	16+path_used			; ($10) Open
+		dc.w	0				; ($11) NewLine
+		dc.w	6+vcr_used+fcr_used		; ($12) Read
+		dc.w	6+vcr_used+fcr_used		; ($13) Write
+		dc.w	2+vcr_used+fcr_used		; ($14) Close
+		dc.w	3+vcr_used+fcr_used		; ($15) Flush
+		dc.w	4+vcr_used+fcr_used		; ($16) Set Mark
+		dc.w	3+vcr_used+fcr_used		; ($17) Get Mark
+		dc.w	4+vcr_used+fcr_used		; ($18) Set EOF
+		dc.w	3+vcr_used+fcr_used		; ($19) Get EOF
+		dc.w	0				; ($1A) Set Level
+		dc.w	0				; ($1B) Get Level
+		dc.w	18+vcr_used+fcr_used		; ($1C) Get Dir Entry
+		dc.w	0				; ($1D)
+		dc.w	0				; ($1E)
+		dc.w	0				; ($1F)
+		dc.w	3+path_used			; ($20) Get Dev Num
+		dc.w	0				; ($21) Get Last Dev
+		dc.w	0				; ($22) Read Block
+		dc.w	0				; ($23) Write Block
+		dc.w	7+path_used			; ($24) Format
+		dc.w	7+path_used			; ($25) Erase Disk
+		dc.w	0				; ($26)
+		dc.w	0				; ($27) Get Name
+		dc.w	0				; ($28) Get Boot Vol
+		dc.w	0				; ($29) Quit
+		dc.w	0				; ($2A) Get Version
+		dc.w	0				; ($2B) Get FST Info
+		dc.w	0				; ($2C) D_INFO
+		dc.w	0				; ($2D) D_STATUS
+		dc.w	0				; ($2E) D_CONTROL
+		dc.w	0				; ($2F) D_READ
+		dc.w	0				; ($30) D_WRITE
+		dc.w	0				; ($31) Alloc Interrupt
+		dc.w	0				; ($32) Dealloc Interrupt
+		dc.w	0				; ($33) FST Specific
+
+
 		endp
 
 
 
 
 close		proc
-		with	dp
+		with	dp, fst_parms
+
 		lda	#invalid_fst_op
 		ldx	call_number
 		ldy	cookie
 		sec
-		wdm	#$ff
+		call_host
 		bcc	@ok
 		rtl
 @ok
@@ -323,6 +507,8 @@ fatal
 		endp
 
 read		proc
+		with	dp, fst_parms
+
 		; slightly special since newline mode may be in effect.
 
 		ldy	#fcr.mask
@@ -372,7 +558,22 @@ nloop
 
 		endp
 
+		macro
+&lab		global
+		export	&lab
+&lab
+		endm
 fd_op		proc
+
+write		global
+get_eof		global
+set_eof		global
+get_mark	global
+set_mark	global
+flush		global
+get_dir_entry	global
+
+		with dp, fst_parms
 
 		; read, write, truncate, etc.
 		; everything (except close) that uses an fcr.
@@ -380,15 +581,89 @@ fd_op		proc
 		ldx	call_number
 		ldy	cookie
 		sec
-		wdm	#$ff
+		call_host
 		rtl
+		endp
+
+path_op		proc
+
+
+get_file_info	global
+set_file_info	global
+create		global
+destroy		global
+
+erase_disk	global
+format		global
+
+		with	dp, fst_parms
+
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		call_host
+		rtl
+
+		endp
+
+judge_name	proc
+
+		with	dp, fst_parms
+
+		; handle syntax message here. Need to return text pointer.
+		lda	[param_blk_ptr]
+		cmp	#3
+		bcc	@no_syntax
+		ldy	#JudgeNameRecGS
+		lda	#syntax
+		sta	[param_blk_ptr],y
+		iny
+		iny
+		lda	#^syntax
+		sta	[param_blk_ptr],y
+
+@no_syntax
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		call_host
+		rtl
+
+syntax		str.b	'Names may contain any character except colon (:) or slash (/).'
+
+		endp
+
+change_path	proc
+
+		with dp, fst_parms
+
+		; todo -- verify both paths are on the device...
+
+		jsr check_path1
+		bcs exit
+		jsr check_path2
+		bcs exit
+
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		call_host
+
+exit
+		rtl
+
 		endp
 
 
 volume		proc
 		; check if a volume is ours, create vcr if necessary.
 
-		lda	fst_parms.dev1_num
+		with dp, fst_parms
+
+		lda	dev1_num
 		beq	no
 
 		cmp	dev_id
@@ -398,7 +673,7 @@ volume		proc
 		lda	#unknown_vol
 		ldx	call_number
 		sec
-		wdm	#$ff
+		call_host
 		bcc	@ok
 		rtl
 @ok
@@ -414,7 +689,7 @@ no
 
 		endp
 
-build_vcr	procname
+build_vcr	proc
 
 		; for now, volume hard coded as 'Host'.
 
@@ -516,27 +791,16 @@ default_name
 		endp
 
 get_dev_num	proc
-path		equ	path1_ptr
+		with	dp, fst_parms
 
-		lda	dev1_num
-		bne	store
-
-		jsr	check_path
-		bcs	exit
-
-		jsr	build_vcr
-		bcs	exit
-
+		; have already verified path is valid.
 		lda	dev_id
-store
 		ldx	call_class
 		ldy	table,x
 		sta	[param_blk_ptr],y
 		lda	#0
 		clc
-exit
 		rtl
-
 
 table
 		dc.w DevNumRec.devNum, DevNumRecGS.devNum
@@ -547,21 +811,35 @@ table
 		; verify this path is for us
 		; (via dev number or :Host:)
 		;
-check_path	proc
+check_path1	proc
+
+		with	dp, fst_parms
+
 		lda	dev1_num
 		beq	path
 		cmp	dev_id
 		beq	ok
 
 vnf
-		lda	#vol_not_found
+		lda	#unknown_vol
 		sec
 		rts
+
+bps
+		lda	#bad_path_syntax
+		sec
+		rts
+
 ok
 		lda	#0
 		clc
 		rts
 path
+
+		lda	path_flag
+		and	#$4000
+		bne	bps
+
 		ldy	#2
 		ldx	#0
 		lda	#0
@@ -569,9 +847,9 @@ path
 
 loop
 		lda	[path1_ptr],y
-		cmp	lower,y
+		cmp	colon_host,y
 		beq	@next
-		cmp	upper,y
+		cmp	colon_HOST,y
 		beq	@next
 		long	m
 		bra	vnf
@@ -593,6 +871,138 @@ loop
 		bra	ok
 
 
-lower		str.w	':host'
-upper		str.w	':HOST'
+		endp
+
+
+check_path2	proc
+
+		with	dp, fst_parms
+
+		lda	dev2_num
+		beq	path
+		cmp	dev_id
+		beq	ok
+
+vnf
+		lda	#unknown_vol
+		sec
+		rts
+
+bps
+		lda	#bad_path_syntax
+		sec
+		rts
+
+ok
+		lda	#0
+		clc
+		rts
+path
+
+		lda	path_flag
+		and	#$0040
+		bne	bps
+
+		ldy	#2
+		ldx	#0
+		lda	#0
+		short	m
+
+loop
+		lda	[path2_ptr],y
+		cmp	colon_host,y
+		beq	@next
+		cmp	colon_HOST,y
+		beq	@next
+		long	m
+		bra	vnf
+@next
+		iny
+		cpy	#5+2
+		bne	loop
+
+		; check for trailing null / :
+		lda	[path2_ptr],y
+		beq	@ok
+		cmp	#':'
+		beq	@ok
+
+		long	m
+		bra	vnf
+@ok
+		long	m
+		bra	ok
+
+		endp
+
+open		proc
+
+		with	dp, fst_parms
+
+		jsr	build_vcr
+		bcs	exit
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		call_host
+		bcs	exit
+		stx	cookie
+		sty	tmp	; actual read/write access
+
+		; build the fcr.
+		lda	#fcr.__sizeof
+		ldx	#colon_Host
+		ldy	#^colon_Host
+		jsl	alloc_fcr
+		bcs	close
+
+		jsl	deref
+		stx	my_fcr
+		sty	my_fcr+2
+
+		; need to re-deref the vcr?
+
+		ldy	#vcr.open_count
+		lda	[my_vcr],y
+		inc	a
+		sta	[my_vcr],y
+
+		lda	tmp
+		ldy	#fcr.access
+		sta	[my_fcr],y
+
+		lda	#fst_id
+		ldy	#fcr.fst_id
+		sta	[my_fcr],y
+
+		lda	cookie
+		ldy	#fcr.cookie
+		sta	[my_fcr],y
+
+
+		ldy	#vcr.id
+		lda	[my_vcr],y
+		ldy	#fcr.vcr_id
+		sta	[my_fcr],y
+
+exit_ok
+		lda	#0
+		clc
+exit
+		rtl
+
+close
+		;; oops!  close it!
+		lda	#0
+		ldx	#$2014
+		ldy	cookie
+		call_host
+		sec
+		lda	#out_of_mem
+		rtl
+
+		endp
+
+
 		end

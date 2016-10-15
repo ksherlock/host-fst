@@ -20,7 +20,7 @@ host.driver : host.driver.o
 
 host.driver.o : host.driver.aii gsos.equ
 
-host.fst.o : host.fst.aii gsos.equ fst.equ
+host.fst.o : host.fst.aii gsos.equ fst.equ records.equ fst.macros
 
 
 

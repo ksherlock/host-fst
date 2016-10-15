@@ -7,7 +7,8 @@ ptr			ds.l 1 ; misc ptr
 my_vcr          	ds.l 1
 my_fcr          	ds.l 1
 cookie			ds.w 1
-
+call_class		ds.w 1
+tmp			ds.w 1
 
 __end			equ *
 			IF *>=$d4 THEN
@@ -52,3 +53,16 @@ __sizeof		equ *
 
 			; 5 = mfs, we're stealing it for now.
 fst_id			equ 5
+
+;			 Upper-case pathnames
+;			 |Character-based FST
+;			 ||Format capable
+;			 |||Strip high bits from pathname characters
+;			 ||||Read-Only FST
+;			 |||||Reserved
+;			 ||||||||||||||Format type
+;			 ||||||||||||||||  (00 = Universal)
+;			 ||||||||||||||||  (01 = Apple-generic)
+;			 ||||||||||||||||  (10 = Non-Apple)
+;			 ||||||||||||||||  (11 = Apple-][ specific)
+fst_attr	equ	%0000000000000000

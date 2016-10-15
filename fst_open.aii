@@ -5,7 +5,7 @@
 
 open		proc
 
-		with	fst_parms
+		with	dp, fst_parms
 
 		jsr	check_path
 		bcs	exit
