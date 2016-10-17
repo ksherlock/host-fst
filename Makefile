@@ -2,7 +2,7 @@
 LD=mpw linkIIgs
 ASM=mpw asmIIgs
 #ASMFLAGS=-d DEBUG_S16 -d DebugSymbols
-ASMFLAGS=-case on
+ASMFLAGS=-case on -l
 LDFLAGS=
 
 
