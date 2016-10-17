@@ -757,8 +757,8 @@ build_vcr	proc
 
 		with dp
 
-		ldx #default_name
-		ldy #^default_name
+		ldx #host_name
+		ldy #^host_name
 		lda #0
 		jsl find_vcr
 		bcs create_vcr
@@ -814,8 +814,8 @@ dump_vcr
 
 create_vcr
 		lda #vcr.__sizeof
-		ldx #default_name
-		ldy #^default_name
+		ldx #host_name
+		ldy #^host_name
 		jsl alloc_vcr
 		lda #out_of_mem
 		bcs exit
@@ -843,10 +843,7 @@ create_vcr
 exit
 		rts
 
-default_name_colon
-		str.w ':Host'
-
-default_name
+host_name
 		str.w 'Host'
 
 		endp
