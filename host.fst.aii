@@ -97,7 +97,7 @@ sys_entry	proc
 
 		phk
 		plb
-		rep #$30
+		long	m,x
 
 
 		; debug
@@ -262,7 +262,7 @@ app_entry	proc
 
 		phk
 		plb
-		rep #$30
+		long	m,x
 
 
 		; debug
@@ -882,16 +882,19 @@ check_path1	proc
 		beq	ok
 
 vnf
+		long	m
 		lda	#unknown_vol
 		sec
 		rts
 
 bps
+		long	m
 		lda	#bad_path_syntax
 		sec
 		rts
 
 ok
+		long	m
 		lda	#0
 		clc
 		rts
@@ -899,7 +902,7 @@ path
 
 		lda	path_flag
 		and	#$4000
-		bne	bps
+		beq	bps
 
 		ldy	#2
 		ldx	#0
@@ -912,7 +915,6 @@ loop
 		beq	@next
 		cmp	colon_HOST,y
 		beq	@next
-		long	m
 		bra	vnf
 @next
 		iny
@@ -925,10 +927,8 @@ loop
 		cmp	#':'
 		beq	@ok
 
-		long	m
 		bra	vnf
 @ok
-		long	m
 		bra	ok
 
 
@@ -945,16 +945,19 @@ check_path2	proc
 		beq	ok
 
 vnf
+		long	m
 		lda	#unknown_vol
 		sec
 		rts
 
 bps
+		long	m
 		lda	#bad_path_syntax
 		sec
 		rts
 
 ok
+		long	m
 		lda	#0
 		clc
 		rts
@@ -962,7 +965,7 @@ path
 
 		lda	path_flag
 		and	#$0040
-		bne	bps
+		beq	bps
 
 		ldy	#2
 		ldx	#0
@@ -974,9 +977,7 @@ loop
 		cmp	colon_host,y
 		beq	@next
 		cmp	colon_HOST,y
-		beq	@next
-		long	m
-		bra	vnf
+		bne	vnf
 @next
 		iny
 		cpy	#5+2
@@ -988,10 +989,8 @@ loop
 		cmp	#':'
 		beq	@ok
 
-		long	m
 		bra	vnf
 @ok
-		long	m
 		bra	ok
 
 		endp
