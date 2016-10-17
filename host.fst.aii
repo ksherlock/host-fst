@@ -48,6 +48,18 @@
 &lab		dc.b $42, $ff
 		endm
 
+		macro
+&lab		host_print
+&lab		dc.b $42, $fe
+		endm
+
+		macro
+&lab		host_hexdump
+&lab		dc.b $42, $fd
+		endm
+
+
+
 header		proc
 		str	'FST '
 		dc.l	app_entry
@@ -87,6 +99,24 @@ sys_entry	proc
 		plb
 		rep #$30
 
+
+		; debug
+		pha
+		phx
+		phy
+		lda #$8001
+		ldx #debugstr
+		ldy #^debugstr
+		host_print
+		lda #$18
+		ldx #$bd30
+		ldy #$0000
+		host_hexdump
+		ply
+		plx
+		pla
+
+
 		cpx #max_sys_call+1
 		bge rtl_no_error
 
@@ -100,6 +130,7 @@ sys_entry	proc
 		dc.w rtl_no_error	; deferred flush
 max_sys_call	equ *-@sys_table-2
 
+debugstr	str.b 'sys_entry'
 		endp
 
 rtl_no_error	proc
@@ -232,6 +263,35 @@ app_entry	proc
 		phk
 		plb
 		rep #$30
+
+
+		; debug
+		pha
+		phx
+		phy
+		lda #$8001
+		ldx #debugstr
+		ldy #^debugstr
+		host_print
+		lda #$18
+		ldx #$bd30
+		ldy #$0000
+		host_hexdump
+
+		lda path_flag
+		and #$4000
+		beq @xx
+
+		lda #32
+		ldx path1_ptr
+		ldy path1_ptr+2
+		host_hexdump
+
+@xx
+		ply
+		plx
+		pla
+		;
 
 
 		; x = call number * 2
@@ -461,6 +521,7 @@ table		; stores max pcount + 1
 		dc.w	0				; ($32) Dealloc Interrupt
 		dc.w	0				; ($33) FST Specific
 
+debugstr	str.b 'app_entry'
 
 		endp
 
