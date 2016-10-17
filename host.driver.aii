@@ -17,7 +17,7 @@ header		proc
 
 dib		dc.l	0			;Link pointer to next DIB
 		dc.l	entry			;Entry pointer
-		dc.w	%0000111100000000	;Characteristics
+		dc.w	%0000111111100000	;Characteristics
 		dc.l	0			;Block count
 		str.b	'HOST'			;Device name with length
 		dcb.b	32-5,$20
@@ -91,12 +91,34 @@ flush		proc
 		endp
 
 read		proc
-		lda	#no_error
+		with dev_parms
+
+		; todo - disk switch error logic....
+
+		stz	dev_xfer_cnt
+		stz	dev_xfer_cnt+2
+		lda	dev_req_cnt
+		ora	dev_req_cnt+2
+		beq	exit
+
+		lda	#network_error
+exit
 		rts
 		endp
 
 write		proc
-		lda	#no_error
+		with dev_parms
+
+		; todo - disk switch error logic....
+
+		stz	dev_xfer_cnt
+		stz	dev_xfer_cnt+2
+		lda	dev_req_cnt
+		ora	dev_req_cnt+2
+		beq	exit
+
+		lda	#network_error
+exit
 		rts
 		endp
 
@@ -115,33 +137,15 @@ shutdown	proc
 		endp
 
 open		proc
-		lda	open_flag
-		bne	oops
-
-		inc	open_flag
-		lda	#1
-		tsb	status_word
 
 		lda	#no_error
-		rts
-oops
-		lda	#drvr_prior_open
 		rts
 
 		endp
 
 close		proc
-		lda	open_flag
-		beq	oops
-
-		stz	open_flag
-		lda	#1
-		trb	status_word
 
 		lda	#no_error
-		rts
-oops
-		lda	#drvr_not_open
 		rts
 
 		endp
