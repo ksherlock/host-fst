@@ -605,17 +605,17 @@ read		proc
 
 		ldx	#0
 		lda	#0
-		short m
+		short	m
 nloop
-		lda [ptr],y
+		lda	[ptr],y
 		tax
-		lda #$ff
-		sta >$009a00+2,x
+		lda	#$ff
+		sta	>$009a00+2,x
 		dey
-		bpl nloop
-		long m
+		bpl	nloop
+		long	m
 
-		bra fd_op
+		bra	fd_op
 
 		endp
 
@@ -928,6 +928,8 @@ loop
 @ok
 		bra	ok
 
+		longa	on
+		longi	on
 
 		endp
 
@@ -990,9 +992,13 @@ loop
 @ok
 		bra	ok
 
+		longa	on
+		longi	on
+
 		endp
 
 open		proc
+
 
 		with	dp, fst_parms
 
