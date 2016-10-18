@@ -1049,6 +1049,12 @@ open		proc
 		ldy	#fcr.vcr_id
 		sta	[my_fcr],y
 
+		; store the refnum for output.
+		; conveniently, call_class is the offset.
+		lda	[my_fcr]
+		ldy	call_class
+		sta	[param_blk_ptr],y
+
 exit_ok
 		lda	#0
 		clc
