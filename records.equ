@@ -50,6 +50,28 @@ extra		DS.B	1
 weekDay		DS.B	1
 		end_struct
 
+
+CreateRecGS	begin_struct
+pCount		DS.W	1
+pathname	DS.L	1
+access		DS.W	1
+fileType	DS.W	1
+auxType		DS.L	1
+storageType	DS.W	1
+eof		DS.L	1
+resourceEOF	DS.L	1
+		end_struct
+
+CreateRec	begin_struct
+pathname	DS.B	4 
+fAccess		DS.B	2 
+fileType	DS.B	2
+auxType		DS.B	4
+storageType	DS.B	2
+createDate	DS.B	2
+createTime	DS.B	2
+		end_struct
+
 DirEntryRecGS	begin_struct
 pCount		DS.W	1
 refNum		DS.W	1
