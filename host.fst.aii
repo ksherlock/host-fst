@@ -676,7 +676,7 @@ judge_name	proc
 		lda	[param_blk_ptr]
 		cmp	#3
 		bcc	@no_syntax
-		ldy	#JudgeNameRecGS
+		ldy	#JudgeNameRecGS.syntax
 		lda	#syntax
 		sta	[param_blk_ptr],y
 		iny
