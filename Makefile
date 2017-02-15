@@ -26,3 +26,4 @@ host.fst.o : host.fst.aii gsos.equ fst.equ records.equ fst.macros
 
 %.o : %.aii
 	$(ASM) $(ASMFLAGS) $< -o $@
+
