@@ -22,7 +22,9 @@ host.driver.o : host.driver.aii gsos.equ
 
 host.fst.o : host.fst.aii gsos.equ fst.equ records.equ fst.macros
 
-
+.PHONY : clean
+clean :
+	$(RM) -- host.fst host.driver *.o
 
 %.o : %.aii
 	$(ASM) $(ASMFLAGS) $< -o $@
