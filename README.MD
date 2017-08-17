@@ -29,5 +29,5 @@ select the host fst directory. (On older versions it doesn't work correctly).
 4. If you're using an older version of GSPlus, shutdown GSPlus and manually edit the 
 `config.txt` file.  Add a line like:
 
-    g_cfg_host_path = /Users/me/IIgs/
+        g_cfg_host_path = /Users/me/IIgs/
   
