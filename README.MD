@@ -20,7 +20,7 @@ Host FST.
 
 ## Installation
 
-Currently, only GSPlus has support for the host fst.
+Currently, only GSPlus (0.13+) has support for the host fst.
 
 1. See the [releases](https://github.com/ksherlock/host-fst/releases) page for a disk image.
 2. Install the `host.fst` and `host.driver` in your `*:System:` folder
@@ -31,3 +31,8 @@ select the host fst directory. (On older versions it doesn't work correctly).
 
         g_cfg_host_path = /Users/me/IIgs/
   
+
+# Note
+
+Large volume sizes can cause a buffer overflow Finder's code and cause a crash (usually when displaying the File Info window).
+This is fixed as of System 6.0.4.
