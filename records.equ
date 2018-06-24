@@ -259,3 +259,13 @@ DevNumRec	begin_struct
 devName		DS.B	4
 devNum		DS.B	2
 		end_struct
+
+
+CloseRecGS	begin_struct
+pCount		DS.W	1
+refNum		DS.W	1
+		end_struct
+
+CloseRec	begin_struct
+refNum		DS.W	1
+		end_struct
