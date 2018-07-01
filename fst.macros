@@ -272,3 +272,18 @@
 
 
 
+	macro
+&l	post_event
+	bcs	@no
+	pei	call_number
+	lda	dev_id
+	pha
+	pea	0
+	lda	#volume_change
+	ldx	#^volume_change
+	jsl	post_os_event
+	lda	#0
+	clc
+@no
+	mend
+

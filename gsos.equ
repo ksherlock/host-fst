@@ -149,8 +149,12 @@ init_parse_path equ    $01FCD4         ;initialize for parse_path.
 ;
 ; Event codes for os_event
 ;
-volmod_event	equ	$0040		; event code for volume modified
-disk_in_event	equ	$0008		; disk inserted event
+switch_to_p8	equ	$00000002	;Switch from GS/OS to P8.
+switch_to_gsos	equ	$00000004	;Switch from P8 to GS/OS.
+disk_insert	equ	$00000008	;Disk inserted.
+disk_eject	equ	$00000010	;Disk ejected.
+gsos_shutdown	equ	$00000020	;OS shutdown.
+volume_change	equ	$00000040	;Volume changed.
 
 ;
 ; Driver command codes

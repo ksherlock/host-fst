@@ -1,0 +1,929 @@
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   1
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+
+                                  			include	'gsos.equ'
+
+
+                                  		MACRO
+                                  		DEFAULT &var,&value
+                                  		IF &FINDSYM(&SYSGLOBAL,&var)=0 THEN
+                                  	&var EQU &value
+                                  		ENDIF
+                                  		MEND
+
+                                  		; ` prevents expansion during macro processing.
+                                  		DEFAULT `DEBUG_S16,0
+                                 1		IF &FINDSYM(&SYSGLOBAL,&var)=0 THEN
+           0000 0000             1	DEBUG_S16 EQU 0
+                                 1		ENDIF
+                                  		DEFAULT `DebugSymbols,0
+                                 1		IF &FINDSYM(&SYSGLOBAL,&var)=0 THEN
+           0000 0000             1	DebugSymbols EQU 0
+                                 1		ENDIF
+
+                                  	****************************************************************
+                                  	*
+                                  	* The following are equates for GS/OS error codes.
+                                  	*
+                                  	****************************************************************
+
+           0000 0000              	no_error        equ    $00             ; no error has occured
+           0000 0001              	bad_system_call equ    $01             ; bad system call number
+           0000 0002              	fst_load_fail   equ    $02             ; couldn't load FST
+           0000 0004              	invalid_pcount  equ    $04             ; invalid parameter count
+           0000 0007              	gsos_active     equ    $07             ; gsos already active
+           0000 0010              	dev_not_found   equ    $10             ; device not found
+           0000 0011              	invalid_dev_num equ    $11             ; invalid device number
+           0000 0020              	drvr_bad_req    equ    $20             ; bad request or command
+           0000 0021              	drvr_bad_code   equ    $21             ; bad control or status code
+           0000 0022              	drvr_bad_parm   equ    $22             ; bad call parameter
+           0000 0023              	drvr_not_open   equ    $23             ; character device not open
+           0000 0024              	drvr_prior_open equ    $24             ; character device already open
+           0000 0025              	irq_table_full  equ    $25             ; interrupt table full
+           0000 0026              	drvr_no_resrc   equ    $26             ; resources not available
+           0000 0027              	drvr_io_error   equ    $27             ; I/O error
+           0000 0028              	drvr_no_dev     equ    $28             ; device not connected
+           0000 0029              	drvr_busy       equ    $29             ; driver is busy & not available
+           0000 002B              	drvr_wr_prot    equ    $2B             ; device is write protected
+           0000 002C              	drvr_bad_count  equ    $2C             ; invalid byte count
+           0000 002D              	drvr_bad_block  equ    $2D             ; invalid block number
+           0000 002E              	drvr_disk_sw    equ    $2E             ; disk has been switched
+           0000 002F              	drvr_off_line   equ    $2F             ; device off line / no media present
+           0000 0040              	bad_path_syntax equ    $40             ; invalid pathname syntax
+           0000 0043              	invalid_ref_num equ    $43             ; invalid reference number
+           0000 0044              	path_not_found  equ    $44             ; subdirectory does not exist
+           0000 0045              	vol_not_found   equ    $45             ; volume not found
+           0000 0046              	file_not_found  equ    $46             ;
+           0000 0047              	dup_pathname    equ    $47             ; create or rename with existing name
+           0000 0048              	volume_full     equ    $48             ;
+           0000 0049              	vol_dir_full    equ    $49             ; volume directory full
+           0000 004A              	version_error   equ    $4A             ;
+           0000 004B              	bad_store_type  equ    $4B             ; bad storage type
+           0000 004C              	end_of_file     equ    $4C             ;
+           0000 004D              	out_of_range    equ    $4D             ; position out of range
+           0000 004E              	invalid_access  equ    $4E             ; access not allowed
+           0000 004F              	buff_too_small  equ    $4F             ; buffer too small
+           0000 0050              	softerrorlow    equ    $50             ; errors from $50 to $6f are soft errors
+           0000 0050              	file_busy       equ    $50             ; file is already open
+           0000 0051              	dir_error       equ    $51             ; directory error
+           0000 0052              	unknown_vol     equ    $52             ; unknown volume type
+           0000 0053              	parm_range_err  equ    $53             ; parameter out of range
+           0000 0054              	out_of_mem      equ    $54             ; out of memory
+           0000 0057              	dup_volume      equ    $57             ; duplicate volume name
+           0000 0058              	not_block_dev   equ    $58             ; not a block device
+           0000 0059              	invalid_level   equ    $59             ; specified level outside legal range
+           0000 005A              	damaged_bitmap  equ    $5A             ; block number too large
+           0000 005B              	bad_path_names  equ    $5B             ; invalid pathnames for change_path
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   2
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+           0000 005C              	not_system_file equ    $5C             ; not an executable file
+           0000 005D              	os_unsupported  equ    $5D             ; operating system not supported
+           0000 005F              	stack_overflow  equ    $5F             ; too many applications on stack
+           0000 0060              	data_unavail    equ    $60             ; data unavailable
+           0000 0061              	end_of_dir      equ    $61             ; end of directory has been reached
+           0000 0062              	invalid_class   equ    $62             ; invalid FST call class
+           0000 0063              	res_not_found   equ    $63             ; file does not contain req. resource
+           0000 0064              	invalid_fst_id  equ    $64             ; specified FST is not present in system
+           0000 0065              	invalid_fst_op  equ    $65             ; FST does not handle this type of call
+           0000 0066              	fst_caution     equ    $66             ; FST handled call, but result is weird
+           0000 0067              	dup_device      equ    $67             ; used internally only!!!
+           0000 0068              	dev_list_full   equ    $68             ; device list is full
+           0000 0069              	sup_list_full   equ    $69             ; supervisor list is full
+           0000 006A              	fst_error       equ    $6A             ;generic FST error
+           0000 006F              	softerrorhigh   equ    $6f             ; maximum soft error number allowed
+           0000 0070              	resource_exist  equ    $70             ;Cannot expand file, resource already exist
+           0000 0071              	res_add_err     equ    $71             ;cannot add resource fork to this type file.
+
+           0000 0088              	network_error   equ    $88             ;Generic network error.
+
+                                  	****************************************************************
+                                  	*
+                                  	* System Service Table Equates:
+                                  	*
+                                  	****************************************************************
+
+           0001 FC00              	dev_dispatcher  equ    $01FC00         ;dev_dispatch (initialized by new dev dispatcher)
+           0001 FC04              	cache_find_blk  equ    $01FC04         ;cash_find
+           0001 FC08              	cache_add_blk   equ    $01FC08         ;cash_add
+           0001 FC0C              	cache_init      equ    $01FC0C         ;cache initialization
+           0001 FC10              	cache_shutdn    equ    $01FC10         ;cash_shutdown
+           0001 FC14              	cache_del_blk   equ    $01FC14         ;cash_delete
+           0001 FC18              	cache_del_vol   equ    $01FC18         ;cash_del_vol
+           0001 FC1C              	alloc_seg       equ    $01FC1C         ;alloc_zero
+           0001 FC20              	release_seg     equ    $01FC20         ;deallocate
+           0001 FC24              	alloc_vcr       equ    $01FC24         ;allocvcr
+           0001 FC28              	release_vcr     equ    $01FC28         ;releasevcr
+           0001 FC2C              	alloc_fcr       equ    $01FC2C         ;allocfcr
+           0001 FC30              	release_fcr     equ    $01FC30         ;releasefcr
+           0001 FC34              	swap_out        equ    $01FC34         ;swapout
+           0001 FC38              	deref           equ    $01FC38         ;deref2
+           0001 FC3C              	get_sys_gbuf    equ    $01FC3C         ;s_get_sys_gbuf
+           0001 FC40              	sys_exit        equ    $01FC40         ;s_sys_exit
+           0001 FC44              	sys_death       equ    $01FC44         ;s_sys_death
+           0001 FC48              	find_vcr        equ    $01FC48         ;findvcr
+           0001 FC4C              	find_fcr        equ    $01FC4C         ;findfcr
+           0001 FC50              	set_sys_speed   equ    $01FC50         ;set system speed (initialized by new dev dispatcher
+           0001 FC54              	cache_flsh_def  equ    $01FC54         ;flush deferred blocks from cache
+           0001 FC58              	rename_vcr      equ    $01FC58         ;renamevcr
+           0001 FC5C              	rename_fcr      equ    $01FC5C         ;renamefcr
+           0001 FC60              	get_vcr         equ    $01FC60         ;getvcr
+           0001 FC64              	get_fcr         equ    $01FC64         ;getfcr
+           0001 FC68              	lock_mem        equ    $01FC68         ;lockmem
+           0001 FC6C              	unlock_mem      equ    $01FC6C         ;unlockmem
+           0001 FC70              	move_info       equ    $01FC70         ;block move routines
+           0001 FC74              	cvt_0to1        equ    $01FC74         ;cvt0to1
+           0001 FC78              	cvt_1to0        equ    $01FC78         ;cvt1to0
+           0001 FC7C              	replace_80      equ    $01FC7C         ;replace80
+           0001 FC80              	to_b0_core      equ    $01FC80         ;to_bank0_core
+           0001 FC84              	gen_dispatch    equ    $01FC84         ;g_dispatch
+           0001 FC88              	signal          equ    $01FC88         ;signal_event
+           0001 FC8C              	get_sys_buf     equ    $01FC8C         ;get_b0_buf
+           0001 FC90              	set_disksw      equ    $01FC90         ;set_disk_sw (initialized by new dev dispatcher)
+           0001 FC94              	report_error    equ    $01FC94         ;s_report_error
+           0001 FC98              	mount_message   equ    $01FC98         ;s_mount_msg
+           0001 FC9C              	full_error      equ    $01FC9C         ;s_full_error
+           0001 FCA0              	report_fatal    equ    $01FCA0         ;s_report_fatal
+           0001 FCA4              	sup_drvr_disp   equ    $01FCA4         ;supervisory dispatcher
+           0001 FCA8              	install_driver  equ    $01FCA8         ;install device driver
+           0001 FCAC              	get_boot_pfx    equ    $01FCAC         ;s_get_boot_pfx
+           0001 FCB0              	set_boot_pfx    equ    $01FCB0         ;s_set_boot_pfx
+           0001 FCB4              	alloc_cache_seg equ    $01FCB4         ;low_allocate
+           0001 FCB8              	get_stked_id    equ    $01FCB8         ;get id of prog at top of GQUIT stack
+           0001 FCBC              	dyn_slot_arbiter equ   $01FCBC         ;slot arbitration routine (initialized by new dev di
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   3
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+           0001 FCC0              	parse_pathname  equ    $01FCC0         ;parse a pathname
+           0001 FCC4              	post_os_event   equ    $01FCC4         ;notify external code about os event.
+           0001 FCC8              	dynamic_install equ    $01FCC8         ;install drivers (new init by SCM to JML INSERT_DRIV
+           0001 FCCC              	dev_mgr_svc     equ    $01FCCC         ;device manager entry (initialized by new dev dispat
+           0001 FCD0              	old_dev_disp    equ    $01FCD0         ;old device dispatcher (new init by SCM to JML DEV_D
+           0001 FCD4              	init_parse_path equ    $01FCD4         ;initialize for parse_path.
+
+
+                                  	;
+                                  	; Event codes for os_event
+                                  	;
+           0000 0040              	volmod_event	equ	$0040		; event code for volume modified
+           0000 0008              	disk_in_event	equ	$0008		; disk inserted event
+
+                                  	;
+                                  	; Driver command codes
+                                  	;
+           0000 0000              	drvr_startup	equ	0
+           0000 0001              	drvr_open	equ	1
+           0000 0002              	drvr_read	equ	2
+           0000 0003              	drvr_write	equ	3
+           0000 0004              	drvr_close	equ	4
+           0000 0005              	drvr_status	equ	5
+           0000 0006              	drvr_control	equ	6
+           0000 0007              	drvr_flush	equ	7
+           0000 0008              	drvr_shutdown	equ	8
+
+           0000 0001              	drvr_get_dib	equ	1
+
+                                  	;
+                                  	; Driver control and status call codes
+                                  	;
+           0000 0000              	stat_status	equ	0
+           0000 0001              	stat_config	equ	1
+
+
+
+                                  	*
+                                  	* System Death error codes
+                                  	*
+           0000 000A              	vcr_unusable    equ    $000A           ; VCR is unusable/inconsistent
+           0000 000B              	fcr_unusable    equ    $000B           ; FCR is unusable/inconsistent
+
+
+
+           0000 4000              	vcr_swapped	equ $4000           ;FLAG:Volume is swapped out (1 = true)
+           0000 BFFF              	vcr_swapped_in	equ $BFFF           ;FLAG:Volume is swapped in
+           0000 2000              	vcr_wr_enable	equ $2000           ;FLAG:Volume has been seen write enabled
+           0000 DFFF              	vcr_wr_unknown	equ $DFFF           ;FLAG:Volume has not been seen wrenbld
+
+
+                                  	*
+                                  	* access bits.
+                                  	*
+
+           0000 0001              	read_enabled	equ	$0001		;1=Read Enabled
+           0000 0002              	write_enabled	equ	$0002		;1=Write Enabled
+           0000 0020              	backup_enabled	equ	$0020		;1=Needs to be backed up
+           0000 0040              	rename_enabled	equ	$0040		;1=Rename allowed
+           0000 0080              	destroy_enabled	equ	$0080		;1=Destroy is enabled
+
+           0000 0001              	read_access	equ	$01
+           0000 0002              	write_access	equ	$02
+           0000 0004              	invis_bit	equ	$04
+           0000 0003              	read_write_acc	equ	$03
+
+                                  	; used by ProDOS
+           0000 8002              	in_cache	equ	$8002
+
+                                  	                ; records
+
+
+
+00000 0000                        	dev_parms		record	0
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   4
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+00000 0000                        	;--------------------------------------------------
+00000 0000                        	; Here are the device driver fields
+00000 0000                        	;--------------------------------------------------
+00000 0000                        	dev_num		ds.w	1		; device number being called
+00000 0002                        	dev_callnum	ds.w	1		; call number
+00000 0004
+00000 0004                        	dev_dev_id				; device ID (get_dib_ptr)
+00000 0004                        	dev_buff				; I/O buffer address
+00000 0004                        			ds.l	1
+00000 0008
+00000 0008                        	dev_req_cnt	ds.l	1		; request count
+00000 000C                        	dev_xfer_cnt	ds.l	1		; transfer count
+00000 0010                        	dev_blk_num	ds.l	1		; block number
+00000 0014                        	dev_blk_size	ds.w	1		; block size
+00000 0016
+00000 0016                        	dev_fst_num				; FST number
+00000 0016                        	dev_stat_code				;   status code
+00000 0016                        	dev_ctrl_code				;   control code
+00000 0016                        			ds.w	1
+00000 0018                        	dev_vol_id	ds.w	1		; volume ID (???)
+00000 001A                        	dev_cache_pr	ds.w	1		; cache priority
+00000 001C                        	dev_cache_ptr	ds.l	1		; cache pointer
+00000 0020                        	dev_dib_ptr	ds.l	1		; pointer to DIB
+00000 0024                        			endr
+
+
+                                  	                ; gs/os direct page.
+00000 0030                        	fst_parms	record $0030
+00000 0030                        	call_number	ds.w 1		; FST call number
+00000 0032                        	param_blk_ptr	ds.l 1		; pointer to user's parameter block
+00000 0036
+00000 0036                        	;dev_num			; device number from parameter block
+00000 0036                        	dev1_num	ds.w 1		; alias name for dev_num
+00000 0038
+00000 0038                        	dev2_num	ds.w 1		; second device number
+00000 003A
+00000 003A                        	path1_ptr			; ptr to 1st partial/entire pathname
+00000 003A                        	fcr_ptr		ds.l 1		; pointer to file control record
+00000 003E
+00000 003E                        	path2_ptr			; ptr to 2nd partial/entire pathname
+00000 003E                        	vcr_ptr		ds.l 1		; pointer to volume control record
+00000 0042
+00000 0042                        	path_flag	ds.w 1		; flag for path information
+00000 0044                        	span1		ds.w 1		; largest distance between path1 term.
+00000 0046                        	span2		ds.w 1		; max dist. between separators for path2
+00000 0048                        			endr
+
+
+
+                                  			include 'fst.macros'
+
+
+                                  		; dispatch table for variable-pcount structures.
+
+                                  		MACRO
+                                  	&lab	dispatch &table
+
+                                  	&lab
+                                  	@loop
+                                  		ldy &table,x
+                                  		jsr (&table+2,x)
+                                  		dex
+                                  		dex
+                                  		dex
+                                  		dex
+                                  		bpl @loop
+
+                                  		MEND
+
+
+                                  		MACRO
+                                  		str.&size ; &arg, ...
+
+                                  		lclc &str
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   5
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+                                  		lcla &i, &l
+
+                                  	&str	setc &setting('string')
+                                  		STRING asis
+
+                                  		if &size<>'' THEN
+                                  		dc.&size @end-@start
+                                  		ENDIF
+
+                                  	@start
+
+                                  	&i	seta 1
+                                  	&l	seta &nbr(&syslist)
+
+                                  		WHILE &i<=&l DO
+                                  		dc.b &syslist[&i]
+                                  	&i	seta &i+1
+                                  		ENDWHILE
+
+                                  	@end
+
+                                  		STRING &str
+
+                                  		MEND
+
+
+                                  		MACRO
+                                  		long &p1,&p2
+
+                                  		lcla &bits
+                                  	&bits	seta %00000000
+                                  	;&p1	setc &lc(&p1)
+                                  	;&p2	setc &lc(&p2)
+
+                                  		if &p1='m' OR &p2='m' THEN
+                                  	&bits	seta &bits+%00100000
+                                  		longa on
+                                  		ENDIF
+
+                                  		if &p1='x' OR &p2='x' THEN
+                                  	&bits	seta &bits+%00010000
+                                  		longi on
+                                  		ENDIF
+
+                                  		IF &bits<>0 THEN
+                                  		rep #&bits
+                                  		ENDIF
+
+                                  		MEND
+
+
+                                  		MACRO
+                                  		short &p1,&p2
+
+                                  		lcla &bits
+                                  	&bits	seta %00000000
+                                  	;&p1	setc &lc(&p1)
+                                  	;&p2	setc &lc(&p2)
+
+                                  		if &p1='m' OR &p2='m' THEN
+                                  	&bits	seta &bits+%00100000
+                                  		longa off
+                                  		ENDIF
+
+                                  		if &p1='x' OR &p2='x' THEN
+                                  	&bits	seta &bits+%00010000
+                                  		longi off
+                                  		ENDIF
+
+                                  		IF &bits<>0 THEN
+                                  		sep #&bits
+                                  		ENDIF
+
+                                  		MEND
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   6
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+
+
+                                  		macro
+                                  	&l	~ConvSeconds &p1,&p2,&p3
+                                  	&l	ph2	&p1
+                                  		ph4	&p2
+                                  		ph4	&p3
+                                  		ldx	#$3703
+                                  		jsl	$E10000
+                                  		mend
+
+                                  		macro
+                                  	&l	~Long2Hex &p1,&p2,&p3
+                                  	&l	ph4	&p1
+                                  		ph4	&p2
+                                  		ph2	&p3
+                                  		ldx	#$230B
+                                  		jsl	$E10000
+                                  		mend
+
+                                  		macro
+                                  	&l	~Int2Hex &p1,&p2,&p3
+                                  	&l	ph2	&p1
+                                  		ph4	&p2
+                                  		ph2	&p3
+                                  		ldx	#$220B
+                                  		jsl	$E10000
+                                  		mend
+
+
+                                  		macro
+                                  	&l	_DebugHexDump
+                                  	&l	ldx #$0fff
+                                  		jsl $e10000
+                                  		mend
+
+
+                                  		macro
+                                  	&l	~DebugHexDump &p1,&p2
+                                  	&l	ph4 &p1
+                                  		ph2 &p2
+                                  		ldx #$0fff
+                                  		jsl $e10000
+                                  		mend
+
+
+                                  		macro
+                                  	&l	_DebugGetTrace
+                                  	&l	ldx #$10ff
+                                  		jsl $e10000
+                                  		mend
+
+                                  		macro
+                                  	&l	~DebugGetTrace
+                                  	&l	ldx #$10ff
+                                  		jsl $e10000
+                                  		mend
+
+
+                                  		macro
+                                  	&l	_DebugSetTrace
+                                  	&l	ldx #$11ff
+                                  		jsl $e10000
+                                  		mend
+
+
+                                  		macro
+                                  	&l	~DebugSetTrace &p1
+                                  	&l	ph2 &p1
+                                  		ldx #$11ff
+                                  		jsl $e10000
+                                  		mend
+
+
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   7
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+                                  		; borrowed from orca/m
+                                  		; mpw's pushword/pushlong have bugs and generally sucks
+                                  		MACRO
+                                  		ph2	&n1
+
+                                  		IF &n1='*' THEN
+                                  			MEXIT
+                                  		ENDIF
+
+                                  		IF &n1[1:1]='#' THEN
+                                  			pea &n1[2:255]
+                                  			MEXIT
+                                  		ENDIF
+
+                                  		IF &n1[1:1]='<' THEN
+                                  			pei &n1
+                                  			MEXIT
+                                  		ENDIF
+
+                                  		lda &n1
+                                  		pha
+
+                                  		MEND
+
+                                  		MACRO
+                                  		ph4	&n1
+
+                                  		IF &n1='*' THEN
+                                  			MEXIT
+                                  		ENDIF
+
+                                  		IF &n1[1:1]='#' THEN
+                                  			pea |(&n1[2:255])>>16
+                                  			pea |&n1[2:255]
+                                  			MEXIT
+                                  		ENDIF
+
+                                  		IF &n1[1:1]='<' THEN
+                                  			pei &n1+2
+                                  			pei &n1
+                                  			MEXIT
+                                  		ENDIF
+
+
+                                  		lda &n1+2
+                                  		pha
+                                  		lda &n1
+                                  		pha
+
+                                  		MEND
+
+
+                                  		; _rts.cc -> return iff carry clear
+                                  		macro
+                                  	&l	_rts.&cond
+
+                                  		if &cond='cc' THEN
+                                  		bcs @ok
+                                  		ENDIF
+
+                                  		if &cond='cs' THEN
+                                  		bcc @ok
+                                  		ENDIF
+
+                                  		if &cond='eq' THEN
+                                  		bne @ok
+                                  		ENDIF
+
+                                  		if &cond='ne' THEN
+                                  		beq @ok
+                                  		ENDIF
+
+                                  		if &cond='mi' THEN
+                                  		bpl @ok
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   8
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+                                  		ENDIF
+
+                                  		if &cond='pl' THEN
+                                  		bmi @ok
+                                  		ENDIF
+
+                                  		if &cond='vs' THEN
+                                  		bvc @ok
+                                  		ENDIF
+
+                                  		if &cond='vc' THEN
+                                  		bvs @ok
+                                  		ENDIF
+
+                                  		rts
+                                  	@ok
+                                  		mend
+
+                                  		; reverse subtract.
+                                  		macro
+                                  	&l	rsb &target
+                                  		eor #$ffff
+                                  		sec
+                                  		adc &target
+                                  		mend
+
+
+
+
+                                  			entry entry, startup, open, close, read, write, flush, status, control, shutdown
+
+                                  			;entry open_flag, ss_count, status_word
+
+
+
+                                  			string asis
+00000 0000                        	header		proc
+00000 0000 0006                   			dc.w dib-header
+00002 0002 0001                   			dc.w 1				; 1 device
+00004 0004 0000                   			dc.w 0				; no config list
+00006 0006
+00006 0006
+00006 0006 00000000               	dib		dc.l	0			;Link pointer to next DIB
+0000A 000A 00000000               			dc.l	entry			;Entry pointer
+0000E 000E 0FE0                   			dc.w	%0000111111100000	;Characteristics
+00010 0010 00000000               			dc.l	0			;Block count
+00014 0014                        			str.b	'HOST'			;Device name with length
+00014 0014                       1
+00014 0014                       1		lclc &str
+00014 0014                       1		lcla &i, &l
+00014 0014                       1
+00014 0014                       1	&str	setc &setting('string')
+00014 0014                       1		STRING asis
+00014 0014                       1
+00014 0014                       1		if &size<>'' THEN
+00014 0014 04                    1		dc.b     @end-@start
+00015 0015                       1		ENDIF
+00015 0015                       1
+00015 0015                       1	@start
+00015 0015                       1
+00015 0015                       1	&i	seta 1
+00015 0015                       1	&l	seta &nbr(&syslist)
+00015 0015                       1
+00015 0015                       1		WHILE &i<=&l DO
+00015 0015 484F5354              1		dc.b 'HOST'
+00019 0019                       1	&i	seta &i+1
+00019 0019                       1		ENDWHILE
+00019 0019                       1		WHILE &i<=&l DO
+00019 0019                       1		ENDWHILE
+00019 0019                       1
+00019 0019                       1	@end
+00019 0019                       1
+00019 0019                       1		STRING ASIS
+00019 0019                       1
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page   9
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+00019 0019 202020202020           			dcb.b	32-5,$20
+00034 0034 8007                   			dc.w	$8007			;Slot number
+00036 0036 0001                   			dc.w	1			;Unit number
+00038 0038 1000                   			dc.w	$1000			;Version number
+0003A 003A 0010                   			dc.w	$0010			;ID # file server
+0003C 003C 0000                   			dc.w	0			;No header link
+0003E 003E 0000                   			dc.w	0			;No forward link
+00040 0040 00000000               			dc.l	0			;extended dib ptr
+00044 0044 0000                   			dc.w	0			;Device number
+00046 0046
+00046 0046                        			endp
+
+
+
+00046 0000                        	entry		proc
+00046 0000
+00046 0000                        			longa	on
+00046 0000                        			longi	on
+00046 0000
+00046 0000 8B                  3  			phb			;Save the GS/OS bank register
+00047 0001
+00047 0001 4B                  3  			phk
+00048 0002 AB                  4  			plb
+00049 0003
+00049 0003 C9 0009             3  			cmp	#8+1		;Max command number
+0004C 0006 90 05         00053 2  			bcc	@dispatch
+0004E 0008 A9 0020             3  			lda	#drvr_bad_req
+00051 000B 80 05         00058 3  			bra	exit
+00053 000D
+00053 000D                        	@dispatch
+00053 000D 0A                  2  			asl	a
+00054 000E AA                  2  			tax
+00055 000F FC FFFF             8  			jsr	(table,x)
+00058 0012
+00058 0012
+00058 0012                        	exit
+00058 0012 AB                  4  			plb
+00059 0013 C9 0001             3  			cmp	#1
+0005C 0016 6B                  6  			rtl
+0005D 0017
+0005D 0017                        	table
+0005D 0017 0000                   			dc.w	startup
+0005F 0019 0000                   			dc.w	open
+00061 001B 0000                   			dc.w	read
+00063 001D 0000                   			dc.w	write
+00065 001F 0000                   			dc.w	close
+00067 0021 0000                   			dc.w	status
+00069 0023 0000                   			dc.w	control
+0006B 0025 0000                   			dc.w	flush
+0006D 0027 0000                   			dc.w	shutdown
+0006F 0029
+0006F 0029                        			endp
+
+
+0006F 0000                        	data		record
+0006F 0000                        			export ss_count, open_flag, status_word
+0006F 0000
+0006F 0000 0000                   	ss_count	dc.w	0
+00071 0002 0000                   	open_flag	dc.w	0
+00073 0004
+00073 0004                        			; copied via get_device_status
+00073 0004 0010                   	status_word	dc.w	$0010
+00075 0006 00000000               	blocks		dc.l	0
+00079 000A                        			endr
+
+00079 0000                        	flush		proc
+00079 0000 A9 0000             3  			lda	#no_error
+0007C 0003 60                  6  			rts
+0007D 0004                        			endp
+
+0007D 0000                        	read		proc
+0007D 0000                        			with dev_parms
+0007D 0000
+0007D 0000                        			; todo - disk switch error logic....
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page  10
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+0007D 0000
+0007D 0000 64 0C               4  			stz	dev_xfer_cnt
+0007F 0002 64 0E               4  			stz	dev_xfer_cnt+2
+00081 0004 A5 08               4  			lda	dev_req_cnt
+00083 0006 05 0A               4  			ora	dev_req_cnt+2
+00085 0008 F0 03         0008A 2  			beq	exit
+00087 000A
+00087 000A A9 0088             3  			lda	#network_error
+0008A 000D                        	exit
+0008A 000D 60                  6  			rts
+0008B 000E                        			endp
+
+0008B 0000                        	write		proc
+0008B 0000                        			with dev_parms
+0008B 0000
+0008B 0000                        			; todo - disk switch error logic....
+0008B 0000
+0008B 0000 64 0C               4  			stz	dev_xfer_cnt
+0008D 0002 64 0E               4  			stz	dev_xfer_cnt+2
+0008F 0004 A5 08               4  			lda	dev_req_cnt
+00091 0006 05 0A               4  			ora	dev_req_cnt+2
+00093 0008 F0 03         00098 2  			beq	exit
+00095 000A
+00095 000A A9 0088             3  			lda	#network_error
+00098 000D                        	exit
+00098 000D 60                  6  			rts
+00099 000E                        			endp
+
+
+00099 0000                        	startup		proc
+00099 0000 9C FFFF             5  			stz	open_flag
+0009C 0003 EE FFFF             8  			inc	ss_count
+0009F 0006 A9 0000             3  			lda	#no_error
+000A2 0009 60                  6  			rts
+000A3 000A                        			endp
+
+000A3 0000                        	shutdown	proc
+000A3 0000 9C FFFF             5  			stz	ss_count
+000A6 0003 A9 0000             3  			lda	#no_error
+000A9 0006 60                  6  			rts
+000AA 0007                        			endp
+
+000AA 0000                        	open		proc
+000AA 0000
+000AA 0000 A9 0000             3  			lda	#no_error
+000AD 0003 60                  6  			rts
+000AE 0004
+000AE 0004                        			endp
+
+000AE 0000                        	close		proc
+000AE 0000
+000AE 0000 A9 0000             3  			lda	#no_error
+000B1 0003 60                  6  			rts
+000B2 0004
+000B2 0004                        			endp
+
+
+000B2 0000                        	status		proc
+000B2 0000                        			with	dev_parms
+000B2 0000
+000B2 0000 A5 16               4  			lda	<dev_stat_code
+000B4 0002 C9 0005             3  			cmp	#4+1
+000B7 0005 90 04         000BD 2  			bcc	@dispatch
+000B9 0007 A9 0021             3  			lda	#drvr_bad_code
+000BC 000A 60                  6  			rts
+000BD 000B                        	@dispatch
+000BD 000B
+000BD 000B 0A                  2  			asl	a
+000BE 000C AA                  2  			tax
+000BF 000D
+000BF 000D                        			; pre-zero transfer count
+000BF 000D 64 0C               4  			stz	<dev_xfer_cnt
+000C1 000F 64 0E               4  			stz	<dev_xfer_cnt+2
+000C3 0011
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page  11
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+000C3 0011 A5 08               4  			lda	dev_req_cnt
+000C5 0013                        			; check for 0-sized request...
+000C5 0013 05 0A               4  			ora	dev_req_cnt+2
+000C7 0015 F0 2D         000F6 2  			beq	exit
+000C9 0017
+000C9 0017 7C FFFF             6  			jmp	(table,x)
+000CC 001A                        	table
+000CC 001A 0024                   			dc.w	get_device_status
+000CE 001C 0050                   			dc.w	get_config_params
+000D0 001E 0050                   			dc.w	get_wait_status
+000D2 0020 004C                   			dc.w	get_format_options
+000D4 0022 004C                   			dc.w	get_partition_map
+000D6 0024
+000D6 0024                        	get_device_status
+000D6 0024 A5 0A               4  			lda	dev_req_cnt+2
+000D8 0026 D0 20         000FA 2  			bne	bad_parm
+000DA 0028
+000DA 0028 A5 08               4  			lda	dev_req_cnt
+000DC 002A C9 0002             3  			cmp	#2
+000DF 002D 90 19         000FA 2  			bcc	bad_parm
+000E1 002F C9 0007             3  			cmp	#6+1
+000E4 0032 B0 14         000FA 2  			bcs	bad_parm
+000E6 0034
+000E6 0034 85 0C               4  			sta	<dev_xfer_cnt
+000E8 0036 A8                  2  			tay
+000E9 0037 88                  2  			dey
+000EA 0038 E2 30               3  			sep	#$30
+000EC 003A                        			longa	off
+000EC 003A                        	@loop
+000EC 003A B9 FFFF             4  			lda	status_word,y
+000EF 003D 97 04               6  			sta	[dev_buff],y
+000F1 003F 88                  2  			dey
+000F2 0040 10 F8         000EC 2  			bpl	@loop
+000F4 0042 C2 30               3  			rep	#$30
+000F6 0044                        			longa	on
+000F6 0044
+000F6 0044
+000F6 0044                        	exit
+000F6 0044 A9 0000             3  			lda	#no_error
+000F9 0047 60                  6  			rts
+000FA 0048
+000FA 0048 A9 0022             3  	bad_parm	lda	#drvr_bad_parm
+000FD 004B 60                  6  			rts
+000FE 004C
+000FE 004C
+000FE 004C                        	get_partition_map
+000FE 004C                        	get_format_options
+000FE 004C A9 0000             3  			lda	#no_error
+00101 004F 60                  6  			rts
+00102 0050
+00102 0050                        	get_config_params
+00102 0050                        	get_wait_status
+00102 0050 A5 0A               4  			lda	dev_req_cnt+2
+00104 0052 D0 F4         000FA 2  			bne	bad_parm
+00106 0054
+00106 0054 A5 08               4  			lda	dev_req_cnt
+00108 0056 C9 0002             3  			cmp	#2
+0010B 0059 D0 ED         000FA 2  			bne	bad_parm
+0010D 005B 85 0C               4  			sta	<dev_xfer_cnt
+0010F 005D
+0010F 005D A9 0000             3  			lda	#0
+00112 0060 87 04               7  			sta	[dev_buff]
+00114 0062 A9 0000             3  			lda	#no_error
+00117 0065 60                  6  			rts
+00118 0066
+00118 0066                        			endp
+
+00118 0000                        	control		proc
+00118 0000                        			with dev_parms
+00118 0000
+00118 0000 A5 16               4  			lda	<dev_ctrl_code
+0011A 0002 C9 000A             3  			cmp	#9+1
+0011D 0005 90 04         00123 2  			bcc	@dispatch
+0011F 0007 A9 0021             3  			lda	#drvr_bad_code
+
+MPW IIGS Assembler - Ver 1.2                                                                               18-Feb-17  Page  12
+Copyright Apple Computer, Inc. 1987-1990
+
+Loc   SLoc Object Code    Addr T M	Source Statement
+
+00122 000A 60                  6  			rts
+00123 000B                        	@dispatch
+00123 000B 0A                  2  			asl	a
+00124 000C AA                  2  			tax
+00125 000D 7C FFFF             6  			jmp	(table,x)
+00128 0010
+00128 0010
+00128 0010                        			entry null, set_wait
+00128 0010                        	table
+00128 0010 0000                   			dc.w	null ; reset
+0012A 0012 0000                   			dc.w	null ; format
+0012C 0014 0000                   			dc.w	null ; eject
+0012E 0016 0000                   			dc.w	null ; set ctrl
+00130 0018 0000                   			dc.w	set_wait ; set wait
+00132 001A 0000                   			dc.w	null ; set format
+00134 001C 0000                   			dc.w	null ; set partition
+00136 001E 0000                   			dc.w	null ; arm signal
+00138 0020 0000                   			dc.w	null ; disarm signal
+0013A 0022 0000                   			dc.w	null ; set partition map
+0013C 0024
+0013C 0024 A9 0000             3  	null		lda	#no_error
+0013F 0027 60                  6  			rts
+00140 0028
+00140 0028                        	set_wait
+00140 0028                        			; verify wait status is 0.
+00140 0028 A5 0A               4  			lda	dev_req_cnt+2
+00142 002A D0 0B         0014F 2  			bne	@bad_parm
+00144 002C A5 08               4  			lda	dev_req_cnt
+00146 002E C9 0002             3  			cmp	#2
+00149 0031 D0 04         0014F 2  			bne	@bad_parm
+0014B 0033 A7 04               7  			lda	[dev_buff]
+0014D 0035 F0 03         00152 2  			beq	@exit
+0014F 0037                        	@bad_parm
+0014F 0037 A9 0022             3  			lda	#drvr_bad_parm
+00152 003A                        	@exit
+00152 003A 60                  6  			rts
+00153 003B                        			endp
+
+                                  			end
+
+Elapsed time: 0.16 seconds.
+
+Assembly complete - no errors found.  853 lines.

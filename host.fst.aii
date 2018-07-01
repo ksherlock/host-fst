@@ -18,7 +18,7 @@
 		entry	check_path1, check_path2
 		entry	build_vcr
 
-		entry	fd_op
+		entry	fd_op_ro
 
 
 		entry	create
@@ -368,8 +368,8 @@ app_entry	proc
 @check_path
 		ldx	<tmp
 
-		lda	#path_used
-		bit	table,x
+		lda	table,x
+		and	#path_used
 		beq	@call
 		; path checking...
 
@@ -581,7 +581,7 @@ read		proc
 		ldy	#fcr.mask
 		lda	[my_fcr],y
 		sta	>$009a00 ; hardcoded...
-		beq	fd_op
+		beq	fd_op_ro
 
 		; zero-out the table.
 		ldx	#256-2
@@ -621,7 +621,7 @@ nloop
 		bpl	nloop
 		long	m
 
-		bra	fd_op
+		bra	fd_op_ro
 
 		endp
 
@@ -630,15 +630,14 @@ nloop
 		export	&lab
 &lab
 		endm
-fd_op		proc
+fd_op_ro	proc
 
-write		global
+
 get_eof		global
-set_eof		global
 get_mark	global
-set_mark	global
 flush		global
 get_dir_entry	global
+
 
 		with dp, fst_parms
 
@@ -652,19 +651,33 @@ get_dir_entry	global
 		rtl
 		endp
 
-path_op		proc
+
+fd_op_rw	proc
+
+write		global
+set_eof		global
+set_mark	global
+
+		with dp, fst_parms
+
+		; read, write, truncate, etc.
+		; everything (except close) that uses an fcr.
+		lda	#invalid_fst_op
+		ldx	call_number
+		ldy	cookie
+		sec
+		call_host
+		post_event
+		rtl
+		endp
+
+
+path_op_ro	proc
 
 
 get_file_info	global
-set_file_info	global
-create		global
-destroy		global
-
-erase_disk	global
-format		global
 
 		with	dp, fst_parms
-
 
 		lda	#invalid_fst_op
 		ldx	call_number
@@ -673,6 +686,26 @@ format		global
 		rtl
 
 		endp
+
+path_op_rw	proc
+
+set_file_info	global
+create		global
+destroy		global
+erase_disk	global
+format		global
+
+		with	dp, fst_parms
+
+		lda	#invalid_fst_op
+		ldx	call_number
+		sec
+		call_host
+		post_event
+		rtl
+
+		endp
+
 
 judge_name	proc
 
@@ -718,7 +751,7 @@ change_path	proc
 		ldx	call_number
 		sec
 		call_host
-
+		post_event
 exit
 		rtl
 
