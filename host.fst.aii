@@ -20,7 +20,6 @@
 
 		entry	fd_op_ro
 
-
 		entry	create
 		entry	destroy
 		entry	change_path
@@ -337,11 +336,22 @@ app_entry	proc
 		stz	cookie
 
 
-@check_fcr
 		; check fcr bit.
+		; n = fcr/vcr-based
+		; v = path-based
 		bit	table,x
-		bpl	@check_vcr
+		bmi	@vcr
+		bvc	@call
 
+@path
+		; path checking...
+
+		jsr	check_path1
+		bcc	@call
+		jml	sys_exit
+
+@vcr
+		; deref vcr and fcr.
 		ldx 	fcr_ptr
 		ldy 	fcr_ptr+2
 		jsl	deref
@@ -351,35 +361,13 @@ app_entry	proc
 		lda	[my_fcr],y
 		sta	cookie
 
-
-
-@check_vcr
-		ldx	<tmp
-
-		bit	table,x
-		bvc	@check_path
-
 		ldx 	vcr_ptr
 		ldy 	vcr_ptr+2
 		jsl	deref
 		stx	my_vcr
 		sty	my_vcr+2
 
-@check_path
-		ldx	<tmp
-
-		lda	table,x
-		and	#path_used
-		beq	@call
-		; path checking...
-
-		jsr	check_path1
-		bcc	@call
-		jml	sys_exit
-
 @call
-		ldx	<tmp
-
 		; fake an rtl address for sys_exit
 		; otherwise, would need to jml sys_exit from functions.
 		pea	|(sys_exit-1)>>8
@@ -468,10 +456,10 @@ max_app_call	equ *-app_table-2
 
 
 
-
-fcr_used	equ	$8000
-vcr_used	equ	$4000
-path_used	equ	$2000
+; insight - vcr and fcr always go together.
+vcr_used	equ	$8000
+fcr_used	equ	$0000
+path_used	equ	$4000
 
 table		; stores max pcount + 1
 		dc.w	0
@@ -1064,6 +1052,12 @@ open		proc
 		sty	my_fcr+2
 
 		; need to re-deref the vcr?
+		ldx 	vcr_ptr
+		ldy 	vcr_ptr+2
+		jsl	deref
+		stx	my_vcr
+		sty	my_vcr+2
+
 
 		ldy	#vcr.open_count
 		lda	[my_vcr],y

@@ -1,0 +1,322 @@
+;
+; Host FST boot loader.
+;
+;
+;
+;
+;
+
+		string asis
+		case on
+
+		include 'gsos.equ'
+		include	'fst.macros'
+		include	'records.equ'
+
+
+		macro
+&lab		call_host
+&lab		dc.b $42, $ff
+		endm
+
+		macro
+&lab		host_print
+&lab		dc.b $42, $fe
+		endm
+
+		macro
+&lab		host_hexdump
+&lab		dc.b $42, $fd
+		endm
+
+gbuffer		equ $9a00
+
+
+header		proc org $2000
+
+		import startup
+		import readfile
+		import getbootname
+		import getfstname
+
+		export aux_value
+
+		jmp startup
+		nop
+		dc.w readfile
+		dc.w getbootname
+		dc.w getfstname
+		dc.w startup-header
+aux_value	dc.w 0
+		endp
+
+
+; getfst_name(name*)
+;
+getfstname	proc
+nameptr 	equ $0
+
+		plx ; rts
+		pla
+		sta <nameptr
+		pla
+		sta <nameptr+2
+		phx
+		ldy |fst_str
+		iny
+		short m
+@loop
+		lda fst_str,y
+		sta [nameptr],y
+		dey
+		bpl @loop
+		long m
+
+		clc
+		lda #0
+		rts
+fst_str		str.w 'Host.fst'
+		endp
+
+getbootname	proc
+nameptr 	equ $0
+
+		plx ; rts
+		pla
+		sta <nameptr
+		pla
+		sta <nameptr+2
+		phx
+		ldy |volume_str
+		iny
+		short m
+@loop
+		lda volume_str,y
+		sta [nameptr],y
+		dey
+		bpl @loop
+		long m
+
+		clc
+		lda #0
+		rts
+volume_str	str.w ':Host'
+		endp
+
+readfile	proc
+;
+;
+;
+		import OpenDCB:OpenRecGS
+		import CloseDCB:CloseRecGS
+		import ReadDCB:IORecGS
+
+		import open_read_close
+
+		plx ; rts
+		pla
+		sta ReadDCB.dataBuffer
+		pla
+		sta ReadDCB.dataBuffer+2
+		pla
+		sta OpenDCB.pathname
+		pla
+		sta OpenDCB.pathname+2
+		phx ; rts
+
+		jsr open_read_close
+		bcs @error
+
+		lda OpenDCB.fileType
+		sta 3,s
+
+		lda OpenDCB.auxType
+		sta 5,s
+
+		lda OpenDCB.eof
+		sta 7,s
+		lda OpenDCB.eof+2
+		sta 9,s
+
+
+		lda #0
+		clc
+		rts
+
+@error ; A should have error code....
+		rts
+		endp
+
+
+open_read_close	proc
+;
+; pathname, dataBuffer set up in DCBs.
+;
+
+		import OpenDCB:OpenRecGS
+		import CloseDCB:CloseRecGS
+		import ReadDCB:IORecGS
+		import fakedp
+
+		with fst_parms
+		phd
+		phb
+		phk
+		plb
+
+		lda #fakedp
+		tcd
+
+		lda gbuffer
+		sta scratch
+
+		lda #OpenDCB
+		sta param_blk_ptr
+		lda #^OpenDCB
+		sta param_blk_ptr+2
+		stz dev1_num
+		stz dev2_num
+
+		lda OpenDCB.pathname
+		sta path1_ptr
+		lda OpenDCB.pathname+2
+		sta path1_ptr+2
+
+		stz path2_ptr
+		stz path2_ptr+2
+
+		lda #$4000
+		sta path_flag
+		lda #11
+		sta span1
+		stz span2
+
+
+		ldx #$2010
+		stx call_number
+		sec
+		call_host
+		bcs @exit
+		; x = cookie for open/close.
+
+		txy ; cookie
+
+		lda OpenDCB.eof
+		sta ReadDCB.requestCount
+		lda OpenDCB.eof+2
+		sta ReadDCB.requestCount+2
+
+
+		; global data buffer -
+		; readline mask.
+		stz $9a00
+		stz ReadDCB.transferCount
+		stz ReadDCB.transferCount+2
+		lda #ReadDCB
+		sta param_blk_ptr
+		lda #^ReadDCB
+		sta param_blk_ptr+2
+		stz dev1_num
+		stz dev2_num
+
+		stz path1_ptr
+		stz path1_ptr+2
+		stz path2_ptr
+		stz path2_ptr+2
+
+		stz path_flag
+		stz span1
+		stz span2
+
+		ldx #$2012
+		stx call_number
+		sec
+		call_host
+
+		; close...
+		lda #CloseDCB
+		sta param_blk_ptr
+		lda #^CloseDCB
+		sta param_blk_ptr+2	
+
+		ldx #$2014
+		stx call_number
+		sec
+		call_host
+
+
+
+@exit
+		lda scratch
+		sta gbuffer
+
+		plb
+		pld
+		rts
+scratch		ds.w 1
+		endp
+
+startup		proc
+		
+		clc
+		xce
+		long m,x
+
+		import OpenDCB:OpenRecGS
+		import CloseDCB:CloseRecGS
+		import ReadDCB:IORecGS
+		import aux_value
+
+		; 1. open/read/close start.gsos
+		; 2. execute start.gsos
+
+
+		lda #15
+		sta OpenDCB.pCount
+		lda #start_str
+		sta OpenDCB.pathname
+		lda #^start_str
+		sta OpenDCB.pathname+2
+		lda #1
+		sta OpenDCB.requestAccess
+
+		lda #1
+		sta CloseDCB.pCount
+		lda #3
+		sta ReadDCB.pCount
+
+		lda #$6800
+		sta ReadDCB.dataBuffer
+		lda #$0000
+		sta ReadDCB.dataBuffer+2
+
+		jsr open_read_close
+
+
+		lda OpenDCB.auxType
+		sta aux_value
+
+		lda #$1000 ; want *:System:Drivers:Boot.Driver
+		ldx #0
+		ldy #0
+		jmp $6803
+
+start_str	str.w 'System:Start.GS.OS'
+
+		endp
+
+
+Data		record
+
+		export OpenDCB, CloseDCB, ReadDCB
+
+OpenDCB		ds OpenRecGS
+CloseDCB	ds CloseRecGS
+ReadDCB		ds IORecGS
+
+		; needs to be last.
+		export fakedp
+fakedp
+		endr
+		end
+

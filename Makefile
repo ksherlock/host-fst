@@ -6,7 +6,7 @@ ASMFLAGS=-case on -l
 LDFLAGS=
 
 
-all : host.driver host.fst
+all : host.driver host.fst boot.sys
 
 host.fst : host.fst.o
 	$(LD) -t \$$BD -at \$$0000 $< -o $@
@@ -22,9 +22,15 @@ host.driver.o : host.driver.aii gsos.equ
 
 host.fst.o : host.fst.aii gsos.equ fst.equ records.equ fst.macros
 
+boot: boot.o
+	$(LD) $< -o $@
+
+boot.sys: boot
+	mpw makebiniigs -p $< -o $@ -t \$$FF
+
 .PHONY : clean
 clean :
-	$(RM) -- host.fst host.driver *.o
+	$(RM) -- host.fst host.driver boot.sys boot *.o
 
 %.o : %.aii
 	$(ASM) $(ASMFLAGS) $< -o $@
