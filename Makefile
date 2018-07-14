@@ -6,7 +6,7 @@ ASMFLAGS=-case on -l
 LDFLAGS=
 
 
-all : host.driver host.fst boot.sys
+all : host.driver boot.driver host.fst boot.sys
 
 host.fst : host.fst.o
 	$(LD) -t \$$BD -at \$$0000 $< -o $@
@@ -18,7 +18,15 @@ host.fst : host.fst.o
 host.driver : host.driver.o
 	$(LD) -t \$$BB -at \$$0101 $< -o $@
 
+boot.driver : boot.driver.o
+	$(LD) -t \$$BB -at \$$0181 $< -o $@
+
+# -d BootDriver must come after -case on
 host.driver.o : host.driver.aii gsos.equ
+boot.driver.o : host.driver.aii gsos.equ
+	$(ASM) $(ASMFLAGS) -d BootDriver $< -o $@
+
+
 
 host.fst.o : host.fst.aii gsos.equ fst.equ records.equ fst.macros
 
@@ -30,7 +38,7 @@ boot.sys: boot
 
 .PHONY : clean
 clean :
-	$(RM) -- host.fst host.driver boot.sys boot *.o
+	$(RM) -- host.fst host.driver boot.driver boot.sys boot *.o
 
 %.o : %.aii
 	$(ASM) $(ASMFLAGS) $< -o $@

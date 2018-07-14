@@ -10,10 +10,11 @@
 
 		string asis
 header		proc
+		if not BootDriver then
 		dc.w dib-header
 		dc.w 1				; 1 device
 		dc.w 0				; no config list
-
+		endif
 
 dib		dc.l	0			;Link pointer to next DIB
 		dc.l	entry			;Entry pointer

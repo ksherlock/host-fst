@@ -10,6 +10,7 @@
 	; ` prevents expansion during macro processing.
 	DEFAULT `DEBUG_S16,0
 	DEFAULT `DebugSymbols,0
+	DEFAULT `BootDriver,0
 
 ****************************************************************
 *
