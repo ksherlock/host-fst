@@ -6,6 +6,7 @@ ptr			ds.l 1 ; misc ptr
 
 my_vcr          	ds.l 1
 my_fcr          	ds.l 1
+my_vcr_ptr		ds.l 1
 cookie			ds.w 1
 call_class		ds.w 1
 tmp			ds.w 1

@@ -161,64 +161,80 @@ rtl_invalid_pcount	proc
 
 
 
-sys_startup	proc
+find_host_device	proc
 		with	dev_parms
 
-		; 1. find the .host device.
-
+		; find .host device.  if no .host, returns to gs/os.
+		; entry via jsr
+		; exit via rts (success) / sys_exit (fail).
+		lda	dev_id
+		beq	@search
+		bmi	@fail
+		rts
+@fail		plx
+		lda	#unknown_vol
+		sec
+		jml	sys_exit
+@search
+		lda	#-1
+		sta	dev_id
 		lda	#1
 		sta	dev_dev_id
 		stz	dev_num
-loop
+@loop
 		lda	#drvr_get_dib
 		sta	dev_callnum
 		jsl	dev_dispatcher
-		bcs	no
-		; appletalk puts up a dialog box....
+		bcs	@fail
 
 		ldy	#$34 ; dib device id
 		lda	[dev_dib_ptr],y
 		cmp	#$10 ; file server
-		bne	next
+		bne	@next
 
 		short	m
 		ldy	#$0e ; name $04 H O S T
 		lda	[dev_dib_ptr],y
 		cmp	#$04
-		bne	next
+		bne	@next
 
 		iny
 		lda	[dev_dib_ptr],y
 		cmp	#'H'
-		bne	next
+		bne	@next
 
 		iny
 		lda	[dev_dib_ptr],y
 		cmp	#'O'
-		bne	next
+		bne	@next
 
 		iny
 		lda	[dev_dib_ptr],y
 		cmp	#'S'
-		bne	next
+		bne	@next
 
 		iny
 		lda	[dev_dib_ptr],y
 		cmp	#'T'
-		bne	next
+		bne	@next
 
 		long	m
 		lda	dev_dev_id
 		sta	dev_id
-		bra	got_device
+		clc
+		rts
 
-next
+@next
 		long	m
 		; try the next one.
 		inc	dev_dev_id
-		bra	loop
+		bra	@loop
+		endp
 
-got_device
+sys_startup	proc
+
+
+		stz dev_id
 
 		; sanity check that the global buffer location
 		; is where I expect it.
@@ -346,6 +362,7 @@ app_entry	proc
 @path
 		; path checking...
 
+		jsr	find_host_device
 		jsr	check_path1
 		bcc	@call
 		jml	sys_exit
@@ -396,6 +413,8 @@ app_entry	proc
 		lda	#vol_not_found
 		sec
 		jml	sys_exit
+
+
 
 
 
@@ -751,6 +770,13 @@ volume		proc
 
 		with dp, fst_parms
 
+		;
+		; volume requires a device id. it doesn't fit
+		; into the standard table so we check for the 
+		; .host device here.
+		;
+
+		jsr	find_host_device
 		lda	dev1_num
 		beq	no
 
@@ -789,6 +815,8 @@ build_vcr	proc
 		lda #0
 		jsl find_vcr
 		bcs create_vcr
+		stx my_vcr_ptr
+		sty my_vcr_ptr+2
 		jsl deref
 
 		stx my_vcr
@@ -844,6 +872,9 @@ create_vcr
 		ldx #host_name
 		ldy #^host_name
 		jsl alloc_vcr
+		stx my_vcr_ptr
+		sty my_vcr_ptr+2
+
 		lda #out_of_mem
 		bcs exit
 
@@ -1052,8 +1083,9 @@ open		proc
 		sty	my_fcr+2
 
 		; need to re-deref the vcr?
-		ldx 	vcr_ptr
-		ldy 	vcr_ptr+2
+		; vcr_ptr is actually a pathname.
+		ldx 	my_vcr_ptr
+		ldy 	my_vcr_ptr+2
 		jsl	deref
 		stx	my_vcr
 		sty	my_vcr+2
