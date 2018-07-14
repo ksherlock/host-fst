@@ -267,6 +267,11 @@ startup		proc
 		import ReadDCB:IORecGS
 		import aux_value
 
+		; 0. host fst start up.
+		lda	#0
+		ldx	#$8001
+		call_host
+
 		; 1. open/read/close start.gsos
 		; 2. execute start.gsos
 
