@@ -4,11 +4,15 @@ CheckMach	equ	$fe1f			;Monitor Routine to check machine type
 mli		equ	$bf00
 KVersion	equ	$bfff
 
-head_call	equ	$fb
-tail_call	equ	$fc
+head_call	equ	$fc
+tail_call	equ	$fd
 
 ;code		equ	$d7a9 ; end of IIgs clock driver.
 code		equ	$c0f0 ; slot 7 devsel.
+;
+; n.b. - IIgs clock driver is in the language card RAM so it can't be
+; used for 
+;
 
 
 		macro
@@ -70,7 +74,7 @@ dcb		dc.b	4	; pcount
 		dc.b	1	; version
 mli_address	dc.w	$0000	; mli address
 		dc.w	code+dcb_ent-stub_begin	; patch address
-mli_slot	dc.b	$80
+mli_slot	dc.b	$80	; ProDOS slot to use.
 
 fakemli
 		sec
@@ -96,7 +100,7 @@ dcb_ent		dc.b	$0
 		wdm	tail_call
 		rts
 stub_end
-		if (stub_end-stub_begin)>22 then
+		if (stub_end-stub_begin)>16 then
 		aerror	'stub code overflow'
 		endif
 

@@ -49,12 +49,12 @@
 
 		macro
 &lab		host_print
-&lab		dc.b $42, $fe
+&lab		dc.b $42, $a0
 		endm
 
 		macro
 &lab		host_hexdump
-&lab		dc.b $42, $fd
+&lab		dc.b $42, $a1
 		endm
 
 
