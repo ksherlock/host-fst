@@ -1,0 +1,106 @@
+
+
+CheckMach	equ	$fe1f			;Monitor Routine to check machine type
+mli		equ	$bf00
+KVersion	equ	$bfff
+
+head_call	equ	$fb
+tail_call	equ	$fc
+
+;code		equ	$d7a9 ; end of IIgs clock driver.
+code		equ	$c0f0 ; slot 7 devsel.
+
+
+		macro
+&lab		wdm &arg
+&lab		dc.b $42, &arg
+		endm
+
+		Macro
+		_ON_LINE &params
+		jsr	$BF00
+		dc.b	$C5
+		dc.w	&params
+		MEnd
+
+		MACHINE	M65C02
+		LONGA	OFF
+		LONGI	OFF
+
+main		proc	ORG $2000
+
+		lda	$c061			; check open apple button
+		bmi	exit
+		lda	KVersion
+		cmp	#24			; check for ProDOS 2.4+
+		blt	exit
+		sec
+		jsr	CheckMach
+		bcs	exit
+
+		sei
+		lda	mli+1
+		sta	pro_ent+1
+		sta	mli_address
+		lda	mli+2
+		sta	pro_ent+2
+		sta	mli_address+1
+		jsr	fakemli
+		dc.b	$99
+		dc.w	dcb
+
+		ldx	#stub_end-stub_begin
+@loop
+		lda	stub_begin,x
+		sta	code,x
+		dex
+		bpl	@loop
+
+		lda	#<code
+		sta	mli+1
+		lda	#code>>8
+		sta	mli+2
+
+exit
+		cli
+		clc
+		rts
+
+dcb		dc.b	4	; pcount
+		dc.b	1	; version
+mli_address	dc.w	$0000	; mli address
+		dc.w	code+dcb_ent-stub_begin	; patch address
+mli_slot	dc.b	$80
+
+fakemli
+		sec
+		wdm	head_call
+; if this drops through, no gs+ support.
+
+		pla
+		bra	exit
+
+
+
+
+
+
+		;
+		; this code is relocated to $d7a9, after the IIgs clock driver.
+		;
+stub_begin
+		wdm	head_call
+pro_ent		jsr	$0000
+dcb_ent		dc.b	$0
+		dc.w	$0000
+		wdm	tail_call
+		rts
+stub_end
+		if (stub_end-stub_begin)>22 then
+		aerror	'stub code overflow'
+		endif
+
+		endp
+
+
+		end
