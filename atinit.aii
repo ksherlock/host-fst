@@ -8,7 +8,8 @@ head_call	equ	$fc
 tail_call	equ	$fd
 
 ;code		equ	$d7a9 ; end of IIgs clock driver.
-code		equ	$c0f0 ; slot 7 devsel.
+;code		equ	$c0f0 ; slot 7 devsel.
+code		equ	$bf00 ; mli dispatch
 ;
 ; n.b. - IIgs clock driver is in the language card RAM so it can't be
 ; used for 
@@ -44,26 +45,28 @@ main		proc	ORG $2000
 
 		sei
 		lda	mli+1
-		sta	pro_ent+1
+;		sta	pro_ent+1
 		sta	mli_address
 		lda	mli+2
-		sta	pro_ent+2
+;		sta	pro_ent+2
 		sta	mli_address+1
 		jsr	fakemli
 		dc.b	$99
 		dc.w	dcb
+		bcs	exit
 
-		ldx	#stub_end-stub_begin
+
+		ldx	#stub_end-stub_begin-1
 @loop
 		lda	stub_begin,x
 		sta	code,x
 		dex
 		bpl	@loop
 
-		lda	#<code
-		sta	mli+1
-		lda	#code>>8
-		sta	mli+2
+;		lda	#<code
+;		sta	mli+1
+;		lda	#code>>8
+;		sta	mli+2
 
 exit
 		cli
@@ -71,9 +74,9 @@ exit
 		rts
 
 dcb		dc.b	4	; pcount
-		dc.b	1	; version
+		dc.b	2	; version
 mli_address	dc.w	$0000	; mli address
-		dc.w	code+dcb_ent-stub_begin	; patch address
+		dc.w	0 ; code+dcb_ent-stub_begin	; patch address
 mli_slot	dc.b	$80	; ProDOS slot to use.
 
 fakemli
@@ -81,6 +84,7 @@ fakemli
 		wdm	head_call
 ; if this drops through, no gs+ support.
 
+		pla	; remove rts address
 		pla
 		bra	exit
 
@@ -94,13 +98,9 @@ fakemli
 		;
 stub_begin
 		wdm	head_call
-pro_ent		jsr	$0000
-dcb_ent		dc.b	$0
-		dc.w	$0000
-		wdm	tail_call
-		rts
+		dc.b    $00
 stub_end
-		if (stub_end-stub_begin)>16 then
+		if (stub_end-stub_begin)>3 then
 		aerror	'stub code overflow'
 		endif
 
